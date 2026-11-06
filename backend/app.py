@@ -467,6 +467,10 @@ def request_pairing_code(payload: PairingRequest, request: Request):
 
     with db() as conn:
         conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "DELETE FROM pairing_rate_limits WHERE window_started_at<?",
+            (now - 86400,),
+        )
         if not consume_pairing_rate_limit(
             conn, pairing_client_key(request, "request"), limit=5
         ):
