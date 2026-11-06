@@ -32,6 +32,10 @@ Open the **MODERATE** section in the web interface, enter the token, and approve
 
 The catalogue supports server-side search and pagination through `GET /api/v1/catalog/songs?q=...&page=1&limit=20`. The original `GET /api/v1/songs` endpoint remains available for existing clients.
 
+Browser/game pairing uses `POST /api/v1/pairing/request` from the game device and `POST /api/v1/pairing/claim` from the browser profile. The game receives a random 16-character hexadecimal code that expires in 10 minutes and is stored server-side only as a SHA-256 hash. Codes are single-use; requesting a new code for the same game device replaces the previous one. Pairing request/claim calls are limited per API-observed client IP. If deployed behind a reverse proxy, configure rate limiting at the proxy too.
+
+After pairing, `POST /api/v1/selections/save` automatically maps the browser profile ID to the linked game device ID. The mod reads those selections through `GET /api/v1/sync/{game_device_id}` and downloads only approved NONGs through the existing download endpoint. The mod verifies the SHA-256 digest before registering local replacements.
+
 The browser and game can be paired with a one-time 16-character code. In the Jukebox, request a code with **Pair website**, then enter it in the web **PAIR** tab. Codes expire after 10 minutes, are single-use, and pairing attempts are rate-limited by client IP. Once paired, website selections are stored against the game device ID; press **Sync website** in the Jukebox to download approved NONGs, verify their SHA-256 digests, and apply them locally.
 
 The API currently uses SQLite and local file storage for development. It is not publicly deployed. Before production use, add managed database/object storage, user authentication and secure device pairing, rate limiting, backups, monitoring, and a documented rights/takedown process. The admin token is a basic single-server moderation control, not a complete account system.
