@@ -59,7 +59,17 @@ jobs:
           curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"approve"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$nong_id/moderate"
           empty_queue=$(curl --fail --silent --show-error -H "X-Admin-Token: ci-smoke-secret" http://127.0.0.1:8000/api/v1/admin/nongs/pending)
           python -c 'import json,sys; assert json.load(sys.stdin) == []; print("Moderation queue clears after review")' <<< "$empty_queue"
-          curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"gd_song_id\":\"467339\",\"nong_id\":$nong_id,\"device_id\":\"ci-smoke-device\"}" http://127.0.0.1:8000/api/v1/selections/save
+          pairing=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d '{"device_id":"ci-smoke-device"}' http://127.0.0.1:8000/api/v1/pairing/request)
+          pair_code=$(python -c 'import json,sys; print(json.load(sys.stdin)["code"])' <<< "$pairing")
+          test "${#pair_code}" -eq 16
+          claimed=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"browser_device_id\":\"ci-browser-profile\",\"code\":\"$pair_code\"}" http://127.0.0.1:8000/api/v1/pairing/claim)
+          python -c 'import json,sys; d=json.load(sys.stdin); assert d["paired"] is True; assert d["browser_device_id"] == "ci-browser-profile"; print("Browser-to-game pairing passed")' <<< "$claimed"
+          replay_status=$(curl --silent --show-error -o /tmp/gfn-pair-replay.json -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "{\"browser_device_id\":\"another-browser\",\"code\":\"$pair_code\"}" http://127.0.0.1:8000/api/v1/pairing/claim)
+          test "$replay_status" = "400"
+          saved=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"gd_song_id\":\"467339\",\"nong_id\":$nong_id,\"device_id\":\"ci-browser-profile\"}" http://127.0.0.1:8000/api/v1/selections/save)
+          python -c 'import json,sys; d=json.load(sys.stdin); assert d["paired"] is True; assert d["device_id"] == "ci-smoke-device"; print("Paired selection routing passed")' <<< "$saved"
+          browser_selections=$(curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/selections/ci-browser-profile)
+          python -c 'import json,sys; assert json.load(sys.stdin) == []; print("Browser profile does not create a detached selection")' <<< "$browser_selections"
           catalog=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=At%20The%20Speed%20Of%20Light&page=1&limit=1")
           python -c 'import json,sys; d=json.load(sys.stdin); assert d["pagination"]["total"] == 1; assert len(d["items"]) == 1; assert d["items"][0]["gd_song_id"] == "467339"; assert d["pagination"]["pages"] == 1; print("Paginated catalogue search passed")' <<< "$catalog"
           empty=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=not-a-real-track&page=99&limit=10")
