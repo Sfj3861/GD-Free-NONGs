@@ -16,6 +16,8 @@ jobs:
           node-version: 22
       - name: Check browser JavaScript syntax
         run: node --check web/app.js
+      - name: Validate browser interface structure
+        run: python scripts/validate_web.py
 
   backend:
     runs-on: ubuntu-latest
