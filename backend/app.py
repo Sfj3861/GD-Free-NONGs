@@ -3,13 +3,15 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import secrets
 import sqlite3
+import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -92,6 +94,23 @@ def init():
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(device_id, gd_song_id)
         );
+        CREATE TABLE IF NOT EXISTS pairing_codes(
+            game_device_id TEXT PRIMARY KEY,
+            code_hash TEXT NOT NULL UNIQUE,
+            expires_at REAL NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS device_pairs(
+            browser_device_id TEXT PRIMARY KEY,
+            game_device_id TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_pairs_game ON device_pairs(game_device_id);
+        CREATE TABLE IF NOT EXISTS pairing_rate_limits(
+            client_key TEXT PRIMARY KEY,
+            window_started_at REAL NOT NULL,
+            attempts INTEGER NOT NULL
+        );
         """)
 
 
@@ -106,6 +125,15 @@ class Selection(BaseModel):
 
 class ModerationDecision(BaseModel):
     decision: Literal["approve", "reject"]
+
+
+class PairingRequest(BaseModel):
+    device_id: str
+
+
+class PairingClaim(BaseModel):
+    browser_device_id: str
+    code: str
 
 
 def audio_signature_matches(suffix: str, data: bytes) -> bool:
@@ -136,6 +164,36 @@ def public_nong(row):
         "sha256": row["sha256"],
         "uploader": row["uploader"],
     }
+
+
+def pairing_client_key(request: Request, action: str) -> str:
+    # Reverse-proxy deployments should rate-limit at the edge as well.
+    # The API uses the socket peer, not an untrusted X-Forwarded-For header.
+    address = request.client.host if request.client else "unknown"
+    return f"{action}:{address}"
+
+
+def consume_pairing_rate_limit(conn: sqlite3.Connection, key: str, limit: int = 8) -> bool:
+    now = time.time()
+    row = conn.execute(
+        "SELECT window_started_at,attempts FROM pairing_rate_limits WHERE client_key=?",
+        (key,),
+    ).fetchone()
+    if row is None or now - row["window_started_at"] >= 600:
+        conn.execute(
+            "INSERT INTO pairing_rate_limits(client_key,window_started_at,attempts) "
+            "VALUES(?,?,1) ON CONFLICT(client_key) DO UPDATE SET "
+            "window_started_at=excluded.window_started_at,attempts=1",
+            (key, now),
+        )
+        return True
+    if row["attempts"] >= limit:
+        return False
+    conn.execute(
+        "UPDATE pairing_rate_limits SET attempts=attempts+1 WHERE client_key=?",
+        (key,),
+    )
+    return True
 
 
 def require_admin(token: Optional[str]):
@@ -395,32 +453,123 @@ def download_nong(nong_id: int):
     )
 
 
+@app.post("/api/v1/pairing/request")
+def request_pairing_code(payload: PairingRequest, request: Request):
+    game_device_id = payload.device_id.strip()
+    if not game_device_id or len(game_device_id) > 128:
+        raise HTTPException(400, "Invalid game device ID")
+
+    code = secrets.token_hex(8).upper()
+    code_hash = hashlib.sha256(code.encode("ascii")).hexdigest()
+    now = time.time()
+    expires_at = now + 600
+    rate_limited = False
+
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if not consume_pairing_rate_limit(
+            conn, pairing_client_key(request, "request"), limit=5
+        ):
+            rate_limited = True
+        else:
+            conn.execute("DELETE FROM pairing_codes WHERE expires_at<=?", (now,))
+            conn.execute(
+                "INSERT INTO pairing_codes(game_device_id,code_hash,expires_at) "
+                "VALUES(?,?,?) ON CONFLICT(game_device_id) DO UPDATE SET "
+                "code_hash=excluded.code_hash,expires_at=excluded.expires_at,created_at=CURRENT_TIMESTAMP",
+                (game_device_id, code_hash, expires_at),
+            )
+
+    if rate_limited:
+        raise HTTPException(429, "Too many pairing codes requested. Try again in 10 minutes.")
+    return {
+        "code": code,
+        "expires_in_seconds": 600,
+        "expires_at": expires_at,
+    }
+
+
+@app.post("/api/v1/pairing/claim")
+def claim_pairing_code(payload: PairingClaim, request: Request):
+    browser_device_id = payload.browser_device_id.strip()
+    code = payload.code.strip().upper()
+    if not browser_device_id or len(browser_device_id) > 128:
+        raise HTTPException(400, "Invalid browser device ID")
+    if len(code) != 16 or any(ch not in "0123456789ABCDEF" for ch in code):
+        raise HTTPException(400, "Invalid or expired pairing code")
+
+    now = time.time()
+    code_hash = hashlib.sha256(code.encode("ascii")).hexdigest()
+    rate_limited = False
+    paired_game_device = None
+
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if not consume_pairing_rate_limit(
+            conn, pairing_client_key(request, "claim"), limit=8
+        ):
+            rate_limited = True
+        else:
+            row = conn.execute(
+                "SELECT game_device_id FROM pairing_codes "
+                "WHERE code_hash=? AND expires_at>?",
+                (code_hash, now),
+            ).fetchone()
+            if row is not None:
+                paired_game_device = row["game_device_id"]
+                conn.execute(
+                    "INSERT INTO device_pairs(browser_device_id,game_device_id) VALUES(?,?) "
+                    "ON CONFLICT(browser_device_id) DO UPDATE SET "
+                    "game_device_id=excluded.game_device_id,created_at=CURRENT_TIMESTAMP",
+                    (browser_device_id, paired_game_device),
+                )
+                conn.execute(
+                    "DELETE FROM pairing_codes WHERE game_device_id=?",
+                    (paired_game_device,),
+                )
+
+    if rate_limited:
+        raise HTTPException(429, "Too many pairing attempts. Try again in 10 minutes.")
+    if paired_game_device is None:
+        raise HTTPException(400, "Invalid or expired pairing code")
+    return {"paired": True, "browser_device_id": browser_device_id}
+
+
 @app.post("/api/v1/selections/save")
 def save_selection(payload: Selection):
     if not payload.gd_song_id or len(payload.gd_song_id) > 32:
         raise HTTPException(400, "Invalid song ID")
-    if not payload.device_id or len(payload.device_id) > 128:
+    browser_device_id = payload.device_id.strip()
+    if not browser_device_id or len(browser_device_id) > 128:
         raise HTTPException(400, "Invalid device ID")
-    if payload.nong_id is not None:
-        with db() as c:
+
+    with db() as c:
+        if payload.nong_id is not None:
             row = c.execute(
                 "SELECT id FROM nongs WHERE id=? AND gd_song_id=? AND status='approved'",
                 (payload.nong_id, payload.gd_song_id),
             ).fetchone()
-        if row is None:
-            raise HTTPException(404, "Approved NONG not found for this song")
-    with db() as c:
+            if row is None:
+                raise HTTPException(404, "Approved NONG not found for this song")
+
+        pair = c.execute(
+            "SELECT game_device_id FROM device_pairs WHERE browser_device_id=?",
+            (browser_device_id,),
+        ).fetchone()
+        target_device_id = pair["game_device_id"] if pair else browser_device_id
         c.execute(
             "INSERT INTO selections(device_id,gd_song_id,nong_id) VALUES(?,?,?) "
             "ON CONFLICT(device_id,gd_song_id) DO UPDATE SET "
             "nong_id=excluded.nong_id,updated_at=CURRENT_TIMESTAMP",
-            (payload.device_id, payload.gd_song_id, payload.nong_id),
+            (target_device_id, payload.gd_song_id, payload.nong_id),
         )
     return {
         "saved": True,
         "gd_song_id": payload.gd_song_id,
         "nong_id": payload.nong_id,
-        "device_id": payload.device_id,
+        "device_id": target_device_id,
+        "browser_device_id": browser_device_id,
+        "paired": target_device_id != browser_device_id,
     }
 
 
