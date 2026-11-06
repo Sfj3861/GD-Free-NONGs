@@ -17,6 +17,7 @@
   let totalSongs = songs.length;
   let searchTimer = null;
   let apiConnected = false;
+  let moderationToken = "";
 
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -43,10 +44,86 @@
   }
 
   function show(view) {
-    ["library", "detail", "publish"].forEach(name => {
+    ["library", "detail", "publish", "moderate"].forEach(name => {
       $(name + "View").classList.toggle("hidden", name !== view);
     });
-    document.querySelectorAll(".nav-button").forEach(button => {
+    async function loadModerationQueue(token = moderationToken) {
+    const status = $("moderationStatus");
+    const list = $("pendingList");
+    if (!token) {
+      status.textContent = "Enter the moderation token to load the pending queue.";
+      list.innerHTML = "";
+      return;
+    }
+
+    status.textContent = "Loading moderation queue…";
+    try {
+      const response = await fetch(API + "/api/v1/admin/nongs/pending", {
+        headers: { "X-Admin-Token": token }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Moderation access failed");
+      if (!Array.isArray(data)) throw new Error("Invalid moderation queue response");
+
+      moderationToken = token;
+      status.textContent = data.length
+        ? data.length + " upload(s) waiting for review."
+        : "The moderation queue is empty.";
+      list.innerHTML = data.map(item => `
+        <article class="song-card moderation-card">
+          <div class="song-id">PENDING · NONG #${esc(item.id)} · GD ID ${esc(item.gd_song_id)}</div>
+          <h3>${esc(item.display_name || item.original_name)}</h3>
+          <p>${esc(item.uploader || "Community")} · ${esc(item.format || "audio")} · ${Math.ceil((item.size || 0) / 1024)} KB</p>
+          <div class="card-bottom">
+            <button class="gd-button moderation-action" data-id="${esc(item.id)}" data-decision="approve">APPROVE</button>
+            <button class="page-button moderation-action" data-id="${esc(item.id)}" data-decision="reject">REJECT</button>
+          </div>
+        </article>
+      `).join("");
+
+      list.querySelectorAll(".moderation-action").forEach(button => {
+        button.addEventListener("click", () => moderateNong(button.dataset.id, button.dataset.decision));
+      });
+    } catch (error) {
+      moderationToken = "";
+      list.innerHTML = "";
+      status.textContent = "Could not load moderation queue: " + error.message;
+    }
+  }
+
+  async function moderateNong(id, decision) {
+    if (!moderationToken) return;
+    const status = $("moderationStatus");
+    status.textContent = (decision === "approve" ? "Approving" : "Rejecting") + " NONG #" + id + "…";
+    try {
+      const response = await fetch(API + "/api/v1/admin/nongs/" + encodeURIComponent(id) + "/moderate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": moderationToken
+        },
+        body: JSON.stringify({ decision })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Moderation action failed");
+      await loadModerationQueue();
+    } catch (error) {
+      status.textContent = "Moderation failed: " + error.message;
+    }
+  }
+
+  $("adminForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    await loadModerationQueue($("adminToken").value.trim());
+  });
+  $("adminLogout").addEventListener("click", () => {
+    moderationToken = "";
+    $("adminToken").value = "";
+    $("pendingList").innerHTML = "";
+    $("moderationStatus").textContent = "Moderation token cleared from this page session.";
+  });
+
+  document.querySelectorAll(".nav-button").forEach(button => {
       button.classList.toggle("active", button.dataset.view === view);
     });
   }
