@@ -10,7 +10,7 @@
   <header class="topbar">
     <button class="icon-button info-trigger" id="infoOpen" aria-label="Información" title="Información">ⓘ</button>
     <a class="brand" href="#" aria-label="GD Free NONGs inicio"><span class="brand-mark">♫</span><span>GD FREE <b>NONGs</b></span></a>
-    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button><button class="nav-button" data-view="moderate">MODERATE</button></nav>
+    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button><button class="nav-button" data-view="moderate">MODERATE</button><button class="nav-button" data-view="pair">PAIR</button></nav>
     <span class="connection" id="connection"><i></i> LOCAL PREVIEW</span>
   </header>
   <main>
@@ -58,6 +58,20 @@
     </form>
     <p class="form-status" id="moderationStatus" role="status">The token is kept in memory only and is not saved in browser storage.</p>
     <div id="pendingList" class="song-grid"></div>
+  </section>
+  <section id="pairView" class="hidden">
+    <div class="section-heading"><div><div class="eyebrow">DEVICE LINK</div><h2>Pair your game</h2></div></div>
+    <div class="panel">
+      <p class="muted">Open the GD Free NONGs Jukebox in Geometry Dash and choose <b>Pair website</b>. Enter the one-time code shown in the game below. Codes expire after 10 minutes and can only be used once.</p>
+      <form id="pairForm" class="form-grid">
+        <label class="field wide">ONE-TIME PAIRING CODE
+          <input id="pairCode" class="pair-code" type="text" inputmode="text" autocomplete="one-time-code" maxlength="16" minlength="16" pattern="[A-Fa-f0-9]{16}" placeholder="0123456789ABCDEF" required>
+        </label>
+        <button class="gd-button" type="submit">PAIR DEVICE <span>↔</span></button>
+      </form>
+      <p class="form-status" id="pairStatus" role="status">Your browser profile will be linked to the game device after the code is accepted.</p>
+      <p class="muted">Once paired, save NONG selections in the Library, then open the Jukebox and press <b>Sync website</b>. The mod downloads approved audio, verifies its SHA-256 digest and applies the local replacement.</p>
+    </div>
   </section>
   </main>
   <footer><span>GD FREE NONGs</span><span>COMMUNITY-POWERED · RESPECT CREATORS' RIGHTS</span></footer>
