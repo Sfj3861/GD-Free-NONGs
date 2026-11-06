@@ -44,7 +44,7 @@
   }
 
   function show(view) {
-    ["library", "detail", "publish", "moderate"].forEach(name => {
+    ["library", "detail", "publish", "moderate", "pair"].forEach(name => {
       $(name + "View").classList.toggle("hidden", name !== view);
     });
     $("hero").classList.toggle("hidden", view !== "library");
@@ -246,7 +246,7 @@
     all[selectedSong.gd_song_id] = choice;
     localStorage.setItem("gfn-selections", JSON.stringify(all));
 
-    let synced = false;
+    let result = null;
     try {
       const response = await fetch(API + "/api/v1/selections/save", {
         method: "POST",
@@ -257,20 +257,60 @@
           device_id: deviceId()
         })
       });
-      synced = response.ok;
-    } catch {
-      synced = false;
+      result = await response.json();
+      if (!response.ok) throw new Error(result.detail || "Selection save failed");
+    } catch (error) {
+      $("saveMessage").textContent =
+        "Saved only in this browser. API sync failed: " + error.message;
+      $("saveDialog").showModal();
+      return;
     }
 
-    $("saveMessage").textContent = synced
-      ? "Saved to the API for this browser profile. The game mod is not paired with this profile yet."
-      : "Saved only in this browser. Browser-to-game pairing is not implemented yet; choose the version in the in-game Jukebox to apply it.";
+    $("saveMessage").textContent = result.paired
+      ? "Saved for your paired game device. Open the in-game Jukebox and press Sync website to apply it."
+      : "Saved to the API for this browser profile. Pair your browser with the game in the PAIR section to send selections to the Jukebox.";
     $("saveDialog").showModal();
+  }
+
+  async function claimGamePairing(event) {
+    event.preventDefault();
+    const status = $("pairStatus");
+    const code = $("pairCode").value.trim().toUpperCase();
+    if (!/^[A-F0-9]{16}$/.test(code)) {
+      status.textContent = "Enter the 16-character code shown in the game.";
+      return;
+    }
+
+    const apiTarget = new URL(API, window.location.href);
+    if (apiTarget.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(apiTarget.hostname)) {
+      status.textContent = "Pairing codes may only be sent to an HTTPS API (or local development server).";
+      return;
+    }
+
+    status.textContent = "Checking the one-time pairing code…";
+    try {
+      const response = await fetch(API + "/api/v1/pairing/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          browser_device_id: deviceId(),
+          code
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Pairing failed");
+      if (data.paired !== true) throw new Error("The server did not confirm the pairing.");
+      $("pairCode").value = "";
+      status.textContent = "Browser paired successfully! Save selections in the Library, then press Sync website in the in-game Jukebox.";
+    } catch (error) {
+      status.textContent = "Could not pair this device: " + error.message;
+    }
   }
 
   document.querySelectorAll(".nav-button").forEach(button => {
     button.addEventListener("click", () => show(button.dataset.view));
   });
+  $("pairForm").addEventListener("submit", claimGamePairing);
   $("adminForm").addEventListener("submit", async event => {
     event.preventDefault();
     await loadModerationQueue($("adminToken").value.trim());
