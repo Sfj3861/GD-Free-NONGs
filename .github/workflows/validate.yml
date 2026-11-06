@@ -28,13 +28,22 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Compile Python modules
         run: python -m compileall -q backend
-      - name: Start API and check health endpoint
+      - name: Start API
         run: |
-          uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000 &
+          GFN_ADMIN_TOKEN=ci-smoke-secret uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000 &
           for attempt in $(seq 1 20); do
             if curl --fail http://127.0.0.1:8000/health; then
-              exit 0
+              break
             fi
             sleep 1
           done
-          exit 1
+      - name: Exercise upload, moderation, selection, sync and download
+        run: |
+          printf 'ID3\003\000\000\000\000\000\000smoke-test-audio' > /tmp/gfn-smoke.mp3
+          upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "custom_name=CI Smoke Remix" http://127.0.0.1:8000/api/v1/nongs/upload)
+          nong_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$upload")
+          curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"approve"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$nong_id/moderate"
+          curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"gd_song_id\":\"467339\",\"nong_id\":$nong_id,\"device_id\":\"ci-smoke-device\"}" http://127.0.0.1:8000/api/v1/selections/save
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/sync/ci-smoke-device
+          curl --fail --silent --show-error -o /tmp/gfn-downloaded.mp3 "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download"
+          cmp /tmp/gfn-smoke.mp3 /tmp/gfn-downloaded.mp3
