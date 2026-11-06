@@ -185,12 +185,15 @@ def paginated_song_catalog(
         where = " WHERE instr(lower(s.original_name), lower(?)) > 0 OR instr(s.gd_song_id, ?) > 0"
         params = (query, query)
 
-    offset = (page - 1) * limit
     with db() as c:
         total = c.execute(
             "SELECT COUNT(*) FROM songs s" + where,
             params,
         ).fetchone()[0]
+
+        pages = (total + limit - 1) // limit
+        current_page = min(page, pages) if pages else 1
+        offset = (current_page - 1) * limit
         rows = c.execute(
             "SELECT s.gd_song_id,s.original_name,"
             "SUM(CASE WHEN n.status='approved' THEN 1 ELSE 0 END) AS nongs "
@@ -202,7 +205,6 @@ def paginated_song_catalog(
             (*params, limit, offset),
         ).fetchall()
 
-    pages = (total + limit - 1) // limit
     return {
         "items": [
             {
@@ -214,12 +216,12 @@ def paginated_song_catalog(
             for row in rows
         ],
         "pagination": {
-            "page": page,
+            "page": current_page,
             "limit": limit,
             "total": total,
             "pages": pages,
-            "has_previous": page > 1,
-            "has_next": page < pages,
+            "has_previous": current_page > 1,
+            "has_next": current_page < pages,
         },
     }
 
