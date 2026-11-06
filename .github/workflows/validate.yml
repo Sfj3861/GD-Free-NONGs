@@ -1,0 +1,40 @@
+name: Validate web and API
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check browser JavaScript syntax
+        run: node --check web/app.js
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q backend
+      - name: Start API and check health endpoint
+        run: |
+          uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000 &
+          for attempt in $(seq 1 20); do
+            if curl --fail http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
