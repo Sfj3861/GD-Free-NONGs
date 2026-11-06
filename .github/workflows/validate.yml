@@ -40,9 +40,9 @@ jobs:
       - name: Exercise upload, moderation, selection, sync and download
         run: |
           printf 'ID3\003\000\000\000\000\000\000smoke-test-audio' > /tmp/gfn-smoke.mp3
-          upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "custom_name=CI Smoke Remix" http://127.0.0.1:8000/api/v1/nongs/upload)
+          upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "rights_confirmed=true" -F "custom_name=CI Smoke Remix" http://127.0.0.1:8000/api/v1/nongs/upload)
           nong_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$upload")
-          duplicate_status=$(curl --silent --show-error -o /tmp/gfn-duplicate.json -w "%{http_code}" -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" http://127.0.0.1:8000/api/v1/nongs/upload)
+          duplicate_status=$(curl --silent --show-error -o /tmp/gfn-duplicate.json -w "%{http_code}" -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "rights_confirmed=true" http://127.0.0.1:8000/api/v1/nongs/upload)
           test "$duplicate_status" = "409"
           test "$(find backend/data/audio -type f | wc -l)" -eq 1
           curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"approve"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$nong_id/moderate"
