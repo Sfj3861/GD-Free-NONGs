@@ -47,7 +47,23 @@
     ["library", "detail", "publish", "moderate"].forEach(name => {
       $(name + "View").classList.toggle("hidden", name !== view);
     });
-    async function loadModerationQueue(token = moderationToken) {
+    $("adminForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    await loadModerationQueue($("adminToken").value.trim());
+  });
+  $("adminLogout").addEventListener("click", () => {
+    moderationToken = "";
+    $("adminToken").value = "";
+    $("pendingList").innerHTML = "";
+    $("moderationStatus").textContent = "Moderation token cleared from this page session.";
+  });
+
+  document.querySelectorAll(".nav-button").forEach(button => {
+      button.classList.toggle("active", button.dataset.view === view);
+    });
+  }
+
+  async function loadModerationQueue(token = moderationToken) {
     const status = $("moderationStatus");
     const list = $("pendingList");
     if (!token) {
@@ -110,22 +126,6 @@
     } catch (error) {
       status.textContent = "Moderation failed: " + error.message;
     }
-  }
-
-  $("adminForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    await loadModerationQueue($("adminToken").value.trim());
-  });
-  $("adminLogout").addEventListener("click", () => {
-    moderationToken = "";
-    $("adminToken").value = "";
-    $("pendingList").innerHTML = "";
-    $("moderationStatus").textContent = "Moderation token cleared from this page session.";
-  });
-
-  document.querySelectorAll(".nav-button").forEach(button => {
-      button.classList.toggle("active", button.dataset.view === view);
-    });
   }
 
   function setConnection(connected) {
