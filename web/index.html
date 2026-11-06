@@ -10,7 +10,7 @@
   <header class="topbar">
     <button class="icon-button info-trigger" id="infoOpen" aria-label="Información" title="Información">ⓘ</button>
     <a class="brand" href="#" aria-label="GD Free NONGs inicio"><span class="brand-mark">♫</span><span>GD FREE <b>NONGs</b></span></a>
-    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button></nav>
+    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button><button class="nav-button" data-view="moderate">MODERATE</button></nav>
     <span class="connection" id="connection"><i></i> LOCAL PREVIEW</span>
   </header>
   <main>
@@ -49,6 +49,16 @@
         <p class="form-status wide" id="uploadStatus" role="status"></p>
       </form>
     </section>
+  <section id="moderateView" class="hidden">
+    <div class="section-heading"><div><div class="eyebrow">COMMUNITY SAFETY</div><h2>Moderation queue</h2></div></div>
+    <form id="adminForm" class="panel form-grid">
+      <label class="field wide">ADMIN TOKEN <input id="adminToken" type="password" autocomplete="current-password" placeholder="Enter the server moderation token" required></label>
+      <button class="gd-button" type="submit">LOAD PENDING <span>↻</span></button>
+      <button class="page-button" id="adminLogout" type="button">CLEAR TOKEN</button>
+    </form>
+    <p class="form-status" id="moderationStatus" role="status">The token is kept in memory only and is not saved in browser storage.</p>
+    <div id="pendingList" class="song-grid"></div>
+  </section>
   </main>
   <footer><span>GD FREE NONGs</span><span>COMMUNITY-POWERED · RESPECT CREATORS' RIGHTS</span></footer>
   <dialog id="infoDialog" class="dialog">
