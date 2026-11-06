@@ -63,6 +63,10 @@
 
     status.textContent = "Loading moderation queue…";
     try {
+      const apiTarget = new URL(API, window.location.href);
+      if (apiTarget.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(apiTarget.hostname)) {
+        throw new Error("The moderation token may only be sent to an HTTPS API (or local development server).");
+      }
       const response = await fetch(API + "/api/v1/admin/nongs/pending", {
         headers: { "X-Admin-Token": token }
       });
@@ -79,6 +83,7 @@
           <div class="song-id">PENDING · NONG #${esc(item.id)} · GD ID ${esc(item.gd_song_id)}</div>
           <h3>${esc(item.display_name || item.original_name)}</h3>
           <p>${esc(item.uploader || "Community")} · ${esc(item.format || "audio")} · ${Math.ceil((item.size || 0) / 1024)} KB</p>
+          <p class="moderation-description">${esc(item.description || "No description provided.")}</p>
           <div class="card-bottom">
             <button class="gd-button moderation-action" data-id="${esc(item.id)}" data-decision="approve">APPROVE</button>
             <button class="page-button moderation-action" data-id="${esc(item.id)}" data-decision="reject">REJECT</button>
