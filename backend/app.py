@@ -99,6 +99,21 @@ class ModerationDecision(BaseModel):
     decision: Literal["approve", "reject"]
 
 
+def audio_signature_matches(suffix: str, data: bytes) -> bool:
+    """Cheap container signature check; extension alone is never trusted."""
+    if suffix == ".mp3":
+        return data.startswith(b"ID3") or (len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0)
+    if suffix == ".ogg":
+        return data.startswith(b"OggS")
+    if suffix == ".wav":
+        return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+    if suffix == ".flac":
+        return data.startswith(b"fLaC")
+    if suffix == ".m4a":
+        return len(data) >= 12 and data[4:8] == b"ftyp"
+    return False
+
+
 def public_nong(row):
     return {
         "id": row["id"],
@@ -180,7 +195,18 @@ async def upload_nong(
     if not data or len(data) > MAX_BYTES:
         raise HTTPException(413, "Audio must be between 1 byte and 30 MiB")
 
+    if not audio_signature_matches(suffix, data):
+        raise HTTPException(415, "The file contents do not match the selected audio format")
+
     digest = hashlib.sha256(data).hexdigest()
+    with db() as c:
+        duplicate = c.execute(
+            "SELECT id FROM nongs WHERE gd_song_id=? AND sha256=?",
+            (gd_song_id, digest),
+        ).fetchone()
+    if duplicate:
+        raise HTTPException(409, f"This exact audio file is already registered for this song (NONG {duplicate['id']})")
+
     filename = f"{uuid.uuid4().hex}{suffix}"
     (UPLOADS / filename).write_bytes(data)
 
