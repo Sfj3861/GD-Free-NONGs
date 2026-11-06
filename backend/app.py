@@ -341,6 +341,17 @@ def moderate_nong(
     return {"id": nong_id, "status": new_status}
 
 
+@app.get("/api/v1/admin/nongs/pending")
+def pending_nongs(x_admin_token: Optional[str] = Header(default=None)):
+    """List pending uploads for the authenticated moderation dashboard."""
+    require_admin(x_admin_token)
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM nongs WHERE status='pending' ORDER BY id ASC"
+        ).fetchall()
+    return [public_nong(row) for row in rows]
+
+
 @app.get("/api/v1/nongs/{nong_id}/download")
 def download_nong(nong_id: int):
     with db() as c:
