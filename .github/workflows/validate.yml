@@ -44,6 +44,10 @@ jobs:
           nong_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$upload")
           curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"approve"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$nong_id/moderate"
           curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"gd_song_id\":\"467339\",\"nong_id\":$nong_id,\"device_id\":\"ci-smoke-device\"}" http://127.0.0.1:8000/api/v1/selections/save
+          catalog=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=At%20The%20Speed%20Of%20Light&page=1&limit=1")
+          python -c 'import json,sys; d=json.load(sys.stdin); assert d["pagination"]["total"] == 1; assert len(d["items"]) == 1; assert d["items"][0]["gd_song_id"] == "467339"; assert d["pagination"]["pages"] == 1; print("Paginated catalogue search passed")' <<< "$catalog"
+          empty=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=not-a-real-track&page=99&limit=10")
+          python -c 'import json,sys; d=json.load(sys.stdin); assert d["items"] == []; assert d["pagination"]["page"] == 1; assert d["pagination"]["pages"] == 0; assert not d["pagination"]["has_next"]; print("Empty/out-of-range catalogue handling passed")' <<< "$empty"
           curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/sync/ci-smoke-device
           curl --fail --silent --show-error -o /tmp/gfn-downloaded.mp3 "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download"
           cmp /tmp/gfn-smoke.mp3 /tmp/gfn-downloaded.mp3
