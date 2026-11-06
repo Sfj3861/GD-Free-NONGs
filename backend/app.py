@@ -264,41 +264,52 @@ async def upload_nong(
         raise HTTPException(415, "The file contents do not match the selected audio format")
 
     digest = hashlib.sha256(data).hexdigest()
-    with db() as c:
-        duplicate = c.execute(
-            "SELECT id FROM nongs WHERE gd_song_id=? AND sha256=?",
-            (gd_song_id, digest),
-        ).fetchone()
-        if duplicate:
-            raise HTTPException(409, f"This exact audio file is already registered for this song (NONG {duplicate['id']})")
-
-        c.execute(
-            "INSERT INTO songs(gd_song_id,ng_song_id,original_name) VALUES(?,?,?) "
-            "ON CONFLICT(gd_song_id) DO NOTHING",
-            (gd_song_id, ng_song_id.strip() or None, original_name.strip()),
-        )
-        song = c.execute(
-            "SELECT original_name,ng_song_id FROM songs WHERE gd_song_id=?",
-            (gd_song_id,),
-        ).fetchone()
-        canonical_name = song["original_name"]
-        canonical_ng_id = ng_song_id.strip() or song["ng_song_id"]
-
     filename = f"{uuid.uuid4().hex}{suffix}"
-    (UPLOADS / filename).write_bytes(data)
+    stored_path = UPLOADS / filename
 
-    with db() as c:
-        cur = c.execute(
-            "INSERT INTO nongs(gd_song_id,ng_song_id,original_name,custom_name,"
-            "description,filename,format,size,sha256,status) "
-            "VALUES(?,?,?,?,?,?,?,?,?,'pending')",
-            (
-                gd_song_id, canonical_ng_id, canonical_name,
-                custom_name.strip() or None, description.strip()[:2000],
-                filename, suffix[1:], len(data), digest,
-            ),
-        )
-        item_id = cur.lastrowid
+    try:
+        # Serialize duplicate checks and inserts so simultaneous requests cannot
+        # register the same song/audio pair twice in SQLite.
+        stored_path.write_bytes(data)
+        with db() as c:
+            c.execute("BEGIN IMMEDIATE")
+            duplicate = c.execute(
+                "SELECT id FROM nongs WHERE gd_song_id=? AND sha256=?",
+                (gd_song_id, digest),
+            ).fetchone()
+            if duplicate:
+                raise HTTPException(
+                    409,
+                    f"This exact audio file is already registered for this song (NONG {duplicate['id']})",
+                )
+
+            c.execute(
+                "INSERT INTO songs(gd_song_id,ng_song_id,original_name) VALUES(?,?,?) "
+                "ON CONFLICT(gd_song_id) DO NOTHING",
+                (gd_song_id, ng_song_id.strip() or None, original_name.strip()),
+            )
+            song = c.execute(
+                "SELECT original_name,ng_song_id FROM songs WHERE gd_song_id=?",
+                (gd_song_id,),
+            ).fetchone()
+            canonical_name = song["original_name"]
+            canonical_ng_id = ng_song_id.strip() or song["ng_song_id"]
+
+            cur = c.execute(
+                "INSERT INTO nongs(gd_song_id,ng_song_id,original_name,custom_name,"
+                "description,filename,format,size,sha256,status) "
+                "VALUES(?,?,?,?,?,?,?,?,?,'pending')",
+                (
+                    gd_song_id, canonical_ng_id, canonical_name,
+                    custom_name.strip() or None, description.strip()[:2000],
+                    filename, suffix[1:], len(data), digest,
+                ),
+            )
+            item_id = cur.lastrowid
+    except Exception:
+        # Never leave an unreferenced audio file behind after a failed DB write.
+        stored_path.unlink(missing_ok=True)
+        raise
 
     return {
         "id": item_id,
