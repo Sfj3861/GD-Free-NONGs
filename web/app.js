@@ -263,8 +263,8 @@
     }
 
     $("saveMessage").textContent = synced
-      ? "Selection saved to the API."
-      : "Selection saved in this browser. Connect the Geode mod and a deployed API to synchronize with the game.";
+      ? "Saved to the API for this browser profile. The game mod is not paired with this profile yet."
+      : "Saved only in this browser. Browser-to-game pairing is not implemented yet; choose the version in the in-game Jukebox to apply it.";
     $("saveDialog").showModal();
   }
 
