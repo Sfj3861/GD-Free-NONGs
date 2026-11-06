@@ -17,3 +17,8 @@
 .moderation-card .gd-button,.moderation-card .page-button{padding:10px 13px;font-size:9px}
 
 .moderation-description{margin-top:10px!important;padding-top:10px;border-top:1px solid var(--line);line-height:1.6;overflow-wrap:anywhere}
+
+
+.pair-code{max-width:420px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:18px!important;letter-spacing:.18em;text-transform:uppercase}
+#pairView>.panel{max-width:760px}
+@media(max-width:650px){.topbar nav{flex-wrap:wrap;justify-content:flex-end}.nav-button{padding:8px 6px;font-size:8px}}
