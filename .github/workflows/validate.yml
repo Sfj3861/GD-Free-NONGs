@@ -49,6 +49,8 @@ jobs:
           test "$unauthorized_queue_status" = "401"
           pending=$(curl --fail --silent --show-error -H "X-Admin-Token: ci-smoke-secret" http://127.0.0.1:8000/api/v1/admin/nongs/pending)
           python -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows) == 1; assert rows[0]["id"] > 0; assert rows[0]["display_name"] == "CI Smoke Remix"; print("Authenticated moderation queue passed")' <<< "$pending"
+          pending_download_status=$(curl --silent --show-error -o /tmp/gfn-pending-download.json -w "%{http_code}" "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download")
+          test "$pending_download_status" = "404"
           duplicate_status=$(curl --silent --show-error -o /tmp/gfn-duplicate.json -w "%{http_code}" -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "rights_confirmed=true" http://127.0.0.1:8000/api/v1/nongs/upload)
           test "$duplicate_status" = "409"
           test "$(find backend/data/audio -type f | wc -l)" -eq 1
