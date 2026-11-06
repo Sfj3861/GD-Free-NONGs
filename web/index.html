@@ -23,6 +23,11 @@
     <section id="libraryView">
       <div class="section-heading"><div><div class="eyebrow">EXPLORE</div><h2>Song library</h2></div><span class="count" id="songCount">0 SONGS</span></div>
       <div id="songGrid" class="song-grid"></div>
+      <div class="pagination" id="songPagination" aria-label="Catalogue pages">
+        <button class="page-button" id="previousPage" type="button" disabled>← PREVIOUS</button>
+        <span id="pageInfo">PAGE 1 / 1</span>
+        <button class="page-button" id="nextPage" type="button" disabled>NEXT →</button>
+      </div>
       <div id="emptyState" class="empty hidden">No se encontraron canciones. Prueba con otro nombre o ID.</div>
     </section>
     <section id="detailView" class="hidden">
