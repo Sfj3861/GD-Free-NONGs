@@ -21,7 +21,18 @@ pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-Audio uploads are limited to 30 MiB and accepted formats are MP3, OGG, WAV, FLAC and M4A. The API stores files locally for development; production object storage, authentication, moderation and rate limiting are not yet configured.
+Audio uploads are limited to 30 MiB and accepted formats are MP3, OGG, WAV, FLAC and M4A. Each upload requires an explicit rights confirmation, is checked for duplicate audio, and enters the pending moderation queue.
+
+To enable local moderation, start the API with an admin token:
+```bash
+GFN_ADMIN_TOKEN=your-local-secret uvicorn app:app --reload
+```
+
+Open the **MODERATE** section in the web interface, enter the token, and approve or reject pending uploads. The token is held only in the current page session and sent through the `X-Admin-Token` header; it is not stored in browser storage.
+
+The catalogue supports server-side search and pagination through `GET /api/v1/catalog/songs?q=...&page=1&limit=20`. The original `GET /api/v1/songs` endpoint remains available for existing clients.
+
+The API currently uses SQLite and local file storage for development. It is not publicly deployed. Before production use, add managed database/object storage, user authentication and secure device pairing, rate limiting, backups, monitoring, and a documented rights/takedown process. The admin token is a basic single-server moderation control, not a complete account system.
 
 ## Rights and safety
 Only upload audio you own or are authorized to redistribute. A Newgrounds or Geometry Dash ID identifies a track; it does not grant redistribution rights. Public deployment must add authentication, moderation, abuse controls and a suitable rights/takedown process.
