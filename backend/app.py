@@ -241,6 +241,7 @@ async def upload_nong(
     file: UploadFile = File(...),
     gd_song_id: str = Form(...),
     original_name: str = Form(...),
+    rights_confirmed: bool = Form(...),
     ng_song_id: str = Form(""),
     custom_name: str = Form(""),
     description: str = Form(""),
@@ -250,6 +251,8 @@ async def upload_nong(
         raise HTTPException(400, "Invalid Geometry Dash song ID")
     if not original_name.strip() or len(original_name) > 180:
         raise HTTPException(400, "Original song name is required (max 180 characters)")
+    if not rights_confirmed:
+        raise HTTPException(400, "You must confirm that you have permission to redistribute this audio")
     if len(custom_name) > 180 or len(ng_song_id) > 32:
         raise HTTPException(400, "Custom name or Newgrounds ID is too long")
 
