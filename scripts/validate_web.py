@@ -13,6 +13,7 @@ class InterfaceParser(HTMLParser):
         self.nav_views = []
         self.rights_confirmation = False
         self.admin_token = False
+        self.pairing_code = False
         self.forms = set()
 
     def handle_starttag(self, tag, attrs):
@@ -33,6 +34,13 @@ class InterfaceParser(HTMLParser):
                 attrs.get("type") == "password"
                 and attrs.get("autocomplete") == "off"
             )
+        if tag == "input" and element_id == "pairCode":
+            self.pairing_code = (
+                attrs.get("type") == "text"
+                and attrs.get("maxlength") == "16"
+                and "required" in attrs
+                and attrs.get("pattern") == "[A-Fa-f0-9]{16}"
+            )
 
 
 def main():
@@ -51,7 +59,8 @@ def main():
         "songGrid", "songPagination", "previousPage", "nextPage", "pageInfo",
         "uploadForm", "uploadStatus", "rights_confirmed", "adminForm",
         "adminToken", "adminLogout", "moderationStatus", "pendingList",
-        "infoDialog", "saveDialog",
+        "infoDialog", "saveDialog", "pairView", "pairForm",
+        "pairCode", "pairStatus",
     }
     # The rights declaration is a field name, not an HTML id.
     required_ids.discard("rights_confirmed")
@@ -59,7 +68,7 @@ def main():
     if missing:
         raise SystemExit("Missing required interface IDs: " + ", ".join(missing))
 
-    if not {"library", "publish", "moderate"}.issubset(parser.nav_views):
+    if not {"library", "publish", "moderate", "pair"}.issubset(parser.nav_views):
         raise SystemExit("Library, Publish and Moderate navigation entries are required")
     if not {"uploadForm", "adminForm"}.issubset(parser.forms):
         raise SystemExit("Upload and admin forms are required")
@@ -67,8 +76,22 @@ def main():
         raise SystemExit("Uploads must require a rights-confirmation checkbox")
     if not parser.admin_token:
         raise SystemExit("Admin token input must be password-type with autocomplete off")
+    if not parser.pairing_code:
+        raise SystemExit("Pairing code must require a 16-character hexadecimal value")
 
-    print("Web interface structure and safety controls passed")
+    js = html_path.with_name("app.js").read_text(encoding="utf-8")
+    for expected in (
+        'async function claimGamePairing',
+        '/api/v1/pairing/claim',
+        'deviceId()',
+        'result.paired',
+        '/api/v1/admin/nongs/pending',
+        'moderateNong',
+    ):
+        if expected not in js:
+            raise SystemExit("Missing browser flow: " + expected)
+
+    print("Web interface structure, pairing, moderation and safety controls passed")
 
 
 if __name__ == "__main__":
