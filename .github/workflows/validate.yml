@@ -67,3 +67,11 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/sync/ci-smoke-device
           curl --fail --silent --show-error -o /tmp/gfn-downloaded.mp3 "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download"
           cmp /tmp/gfn-smoke.mp3 /tmp/gfn-downloaded.mp3
+          printf 'ID3\003\000\000\000\000\000\000rejected-audio' > /tmp/gfn-rejected.mp3
+          rejected_upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-rejected.mp3;type=audio/mpeg" -F "gd_song_id=613399" -F "original_name=Clubstep" -F "rights_confirmed=true" http://127.0.0.1:8000/api/v1/nongs/upload)
+          rejected_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$rejected_upload")
+          rejected_decision=$(curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"reject"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$rejected_id/moderate")
+          python -c 'import json,sys; d=json.load(sys.stdin); assert d["status"] == "rejected"; print("NONG rejection passed")' <<< "$rejected_decision"
+          rejected_download_status=$(curl --silent --show-error -o /tmp/gfn-rejected-download.json -w "%{http_code}" "http://127.0.0.1:8000/api/v1/nongs/$rejected_id/download")
+          test "$rejected_download_status" = "404"
+          test "$(find backend/data/audio -type f | wc -l)" -eq 1
