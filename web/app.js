@@ -47,18 +47,7 @@
     ["library", "detail", "publish", "moderate"].forEach(name => {
       $(name + "View").classList.toggle("hidden", name !== view);
     });
-    $("adminForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    await loadModerationQueue($("adminToken").value.trim());
-  });
-  $("adminLogout").addEventListener("click", () => {
-    moderationToken = "";
-    $("adminToken").value = "";
-    $("pendingList").innerHTML = "";
-    $("moderationStatus").textContent = "Moderation token cleared from this page session.";
-  });
-
-  document.querySelectorAll(".nav-button").forEach(button => {
+    document.querySelectorAll(".nav-button").forEach(button => {
       button.classList.toggle("active", button.dataset.view === view);
     });
   }
@@ -276,6 +265,17 @@
   document.querySelectorAll(".nav-button").forEach(button => {
     button.addEventListener("click", () => show(button.dataset.view));
   });
+  $("adminForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    await loadModerationQueue($("adminToken").value.trim());
+  });
+  $("adminLogout").addEventListener("click", () => {
+    moderationToken = "";
+    $("adminToken").value = "";
+    $("pendingList").innerHTML = "";
+    $("moderationStatus").textContent = "Moderation token cleared from this page session.";
+  });
+
   $("search").addEventListener("input", () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => refresh(1), 250);
