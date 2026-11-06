@@ -8,3 +8,10 @@
 .page-button{border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.04);color:inherit;padding:10px 14px;font:inherit;cursor:pointer}
 .page-button:hover:not(:disabled){border-color:rgba(190,255,80,.45);color:#d7ff8c}
 .page-button:disabled{opacity:.35;cursor:not-allowed}
+
+
+.rights-confirm{display:flex;align-items:flex-start;gap:10px;color:var(--white);font-size:11px;line-height:1.5;letter-spacing:normal}
+.rights-confirm input{width:17px;height:17px;flex:0 0 auto;margin:1px 0 0;accent-color:var(--green)}
+.moderation-card{min-width:0}
+.moderation-card .card-bottom{gap:10px;align-items:center}
+.moderation-card .gd-button,.moderation-card .page-button{padding:10px 13px;font-size:9px}
