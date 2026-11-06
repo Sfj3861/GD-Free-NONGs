@@ -61,6 +61,12 @@ def db():
 def init():
     with db() as c:
         c.executescript("""
+        CREATE TABLE IF NOT EXISTS songs(
+            gd_song_id TEXT PRIMARY KEY,
+            ng_song_id TEXT,
+            original_name TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS nongs(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             gd_song_id TEXT NOT NULL,
@@ -76,6 +82,9 @@ def init():
             status TEXT NOT NULL DEFAULT 'pending'
         );
         CREATE INDEX IF NOT EXISTS idx_nongs_song ON nongs(gd_song_id);
+        INSERT OR IGNORE INTO songs(gd_song_id,ng_song_id,original_name)
+            SELECT gd_song_id, MAX(ng_song_id), MIN(original_name)
+            FROM nongs GROUP BY gd_song_id;
         CREATE TABLE IF NOT EXISTS selections(
             device_id TEXT NOT NULL,
             gd_song_id TEXT NOT NULL,
@@ -146,16 +155,17 @@ def health():
 def songs():
     with db() as c:
         rows = c.execute(
-            "SELECT gd_song_id, original_name, COUNT(*) AS nongs "
-            "FROM nongs WHERE status='approved' "
-            "GROUP BY gd_song_id, original_name ORDER BY original_name"
+            "SELECT s.gd_song_id,s.original_name,"
+            "SUM(CASE WHEN n.status='approved' THEN 1 ELSE 0 END) AS nongs "
+            "FROM songs s LEFT JOIN nongs n ON n.gd_song_id=s.gd_song_id "
+            "GROUP BY s.gd_song_id,s.original_name ORDER BY s.original_name"
         ).fetchall()
     return [
         {
             "gd_song_id": r["gd_song_id"],
             "name": r["original_name"],
             "artist": "Community catalog",
-            "nongs": r["nongs"],
+            "nongs": r["nongs"] or 0,
         }
         for r in rows
     ]
@@ -204,8 +214,20 @@ async def upload_nong(
             "SELECT id FROM nongs WHERE gd_song_id=? AND sha256=?",
             (gd_song_id, digest),
         ).fetchone()
-    if duplicate:
-        raise HTTPException(409, f"This exact audio file is already registered for this song (NONG {duplicate['id']})")
+        if duplicate:
+            raise HTTPException(409, f"This exact audio file is already registered for this song (NONG {duplicate['id']})")
+
+        c.execute(
+            "INSERT INTO songs(gd_song_id,ng_song_id,original_name) VALUES(?,?,?) "
+            "ON CONFLICT(gd_song_id) DO NOTHING",
+            (gd_song_id, ng_song_id.strip() or None, original_name.strip()),
+        )
+        song = c.execute(
+            "SELECT original_name,ng_song_id FROM songs WHERE gd_song_id=?",
+            (gd_song_id,),
+        ).fetchone()
+        canonical_name = song["original_name"]
+        canonical_ng_id = ng_song_id.strip() or song["ng_song_id"]
 
     filename = f"{uuid.uuid4().hex}{suffix}"
     (UPLOADS / filename).write_bytes(data)
@@ -216,7 +238,7 @@ async def upload_nong(
             "description,filename,format,size,sha256,status) "
             "VALUES(?,?,?,?,?,?,?,?,?,'pending')",
             (
-                gd_song_id, ng_song_id.strip() or None, original_name.strip(),
+                gd_song_id, canonical_ng_id, canonical_name,
                 custom_name.strip() or None, description.strip()[:2000],
                 filename, suffix[1:], len(data), digest,
             ),
