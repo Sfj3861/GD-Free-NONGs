@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10150f">
+  <meta name="description" content="GD Free NONGs — descubre y gestiona versiones alternativas de canciones de Geometry Dash.">
+  <title>GD FREE NONGs</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-button info-trigger" id="infoOpen" aria-label="Información" title="Información">ⓘ</button>
+    <a class="brand" href="#" aria-label="GD Free NONGs inicio"><span class="brand-mark">♫</span><span>GD FREE <b>NONGs</b></span></a>
+    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button></nav>
+    <span class="connection" id="connection"><i></i> LOCAL PREVIEW</span>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">THE COMMUNITY MUSIC LIBRARY</div>
+      <h1>YOUR GD.<br><span>YOUR SOUND.</span></h1>
+      <p>Encuentra versiones alternativas para tus canciones favoritas de Geometry Dash.</p>
+      <label class="search"><span>⌕</span><input id="search" placeholder="Busca por nombre o ID de Geometry Dash…" autocomplete="off"><kbd>SEARCH</kbd></label>
+    </section>
+    <section id="libraryView">
+      <div class="section-heading"><div><div class="eyebrow">EXPLORE</div><h2>Song library</h2></div><span class="count" id="songCount">0 SONGS</span></div>
+      <div id="songGrid" class="song-grid"></div>
+      <div id="emptyState" class="empty hidden">No se encontraron canciones. Prueba con otro nombre o ID.</div>
+    </section>
+    <section id="detailView" class="hidden">
+      <button class="back-button" id="backToLibrary">← BACK TO LIBRARY</button>
+      <div id="songDetail"></div>
+    </section>
+    <section id="publishView" class="hidden">
+      <div class="section-heading"><div><div class="eyebrow">CONTRIBUTE</div><h2>Publish a NONG</h2></div></div>
+      <form id="uploadForm" class="panel form-grid">
+        <label class="field wide">AUDIO FILE <input name="file" type="file" accept=".mp3,.ogg,.wav,.flac,.m4a,audio/*" required><small>MP3, OGG, WAV, FLAC or M4A · max. 30 MiB</small></label>
+        <label class="field">GEOMETRY DASH SONG ID <input name="gd_song_id" inputmode="numeric" placeholder="467339" required></label>
+        <label class="field">NEWGROUNDS ID <input name="ng_song_id" inputmode="numeric" placeholder="Optional"></label>
+        <label class="field wide">ORIGINAL SONG NAME <input name="original_name" placeholder="At The Speed Of Light" required></label>
+        <label class="field wide">CUSTOM NAME <input name="custom_name" placeholder="Optional — takes priority over the original name"></label>
+        <label class="field wide">DESCRIPTION <textarea name="description" rows="3" placeholder="Tell the community about this version…"></textarea></label>
+        <div class="wide rights-note">By publishing, you confirm that you own this audio or have permission to redistribute it. Do not upload copyrighted remixes or recordings without authorization.</div>
+        <button class="gd-button wide" type="submit">UPLOAD NONG <span>↗</span></button>
+        <p class="form-status wide" id="uploadStatus" role="status"></p>
+      </form>
+    </section>
+  </main>
+  <footer><span>GD FREE NONGs</span><span>COMMUNITY-POWERED · RESPECT CREATORS' RIGHTS</span></footer>
+  <dialog id="infoDialog" class="dialog">
+    <button class="dialog-close" id="infoClose" aria-label="Cerrar">×</button><div class="eyebrow">WELCOME TO GD FREE NONGs</div><h2>What is this?</h2>
+    <p>Una biblioteca comunitaria para descubrir y publicar versiones alternativas de canciones asociadas a Geometry Dash.</p>
+    <ol><li>Busca una canción por nombre o ID.</li><li>Abre su ficha y elige una versión.</li><li>Pulsa <b>SAVE</b> para guardar tu selección.</li><li>Conecta el mod GD Free NONGs para sincronizarla con el juego.</li></ol>
+    <p class="muted">La web por sí sola no puede escribir en la carpeta de Geometry Dash. La sincronización requiere el mod instalado y vinculado.</p>
+    <button class="gd-button" id="infoDone">GOT IT</button>
+  </dialog>
+  <dialog id="saveDialog" class="dialog"><button class="dialog-close" id="saveClose">×</button><div class="eyebrow">SELECTION SAVED</div><h2>Saved locally</h2><p id="saveMessage">Your selection has been saved in this browser.</p><p class="muted">La sincronización con Geometry Dash estará disponible al conectar el mod con un servidor desplegado.</p><button class="gd-button" id="saveDone">OK</button></dialog>
+  <script src="app.js"></script>
+</body></html>
