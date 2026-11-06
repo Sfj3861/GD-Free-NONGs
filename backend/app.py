@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -169,6 +169,59 @@ def songs():
         }
         for r in rows
     ]
+
+
+@app.get("/api/v1/catalog/songs")
+def paginated_song_catalog(
+    q: str = Query(default="", max_length=100),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """Search the community catalogue without requiring clients to download every song."""
+    query = q.strip()
+    where = ""
+    params: tuple[str, ...] = ()
+    if query:
+        where = " WHERE instr(lower(s.original_name), lower(?)) > 0 OR instr(s.gd_song_id, ?) > 0"
+        params = (query, query)
+
+    offset = (page - 1) * limit
+    with db() as c:
+        total = c.execute(
+            "SELECT COUNT(*) FROM songs s" + where,
+            params,
+        ).fetchone()[0]
+        rows = c.execute(
+            "SELECT s.gd_song_id,s.original_name,"
+            "SUM(CASE WHEN n.status='approved' THEN 1 ELSE 0 END) AS nongs "
+            "FROM songs s LEFT JOIN nongs n ON n.gd_song_id=s.gd_song_id"
+            + where
+            + " GROUP BY s.gd_song_id,s.original_name "
+            "ORDER BY s.original_name COLLATE NOCASE,s.gd_song_id "
+            "LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+
+    pages = (total + limit - 1) // limit
+    return {
+        "items": [
+            {
+                "gd_song_id": row["gd_song_id"],
+                "name": row["original_name"],
+                "artist": "Community catalog",
+                "nongs": row["nongs"] or 0,
+            }
+            for row in rows
+        ],
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": pages,
+            "has_previous": page > 1,
+            "has_next": page < pages,
+        },
+    }
 
 
 @app.get("/api/v1/songs/{gd_song_id}/nongs")
