@@ -331,13 +331,34 @@ def moderate_nong(
 ):
     require_admin(x_admin_token)
     new_status = "approved" if payload.decision == "approve" else "rejected"
+    rejected_filename = None
     with db() as c:
+        row = c.execute(
+            "SELECT filename FROM nongs WHERE id=? AND status='pending'",
+            (nong_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "Pending NONG not found")
+
         cur = c.execute(
             "UPDATE nongs SET status=? WHERE id=? AND status='pending'",
             (new_status, nong_id),
         )
         if cur.rowcount != 1:
             raise HTTPException(404, "Pending NONG not found")
+        if new_status == "rejected":
+            rejected_filename = row["filename"]
+
+    # Rejected audio is no longer needed for serving. Keep its moderation
+    # metadata and digest in SQLite, but remove the stored media to save space.
+    if rejected_filename:
+        try:
+            (UPLOADS / rejected_filename).unlink(missing_ok=True)
+        except OSError:
+            # The review decision is final even if filesystem cleanup needs
+            # attention; never roll back or misreport the moderation action.
+            pass
+
     return {"id": nong_id, "status": new_status}
 
 
