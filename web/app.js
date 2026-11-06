@@ -47,6 +47,7 @@
     ["library", "detail", "publish", "moderate"].forEach(name => {
       $(name + "View").classList.toggle("hidden", name !== view);
     });
+    $("hero").classList.toggle("hidden", view !== "library");
     document.querySelectorAll(".nav-button").forEach(button => {
       button.classList.toggle("active", button.dataset.view === view);
     });
