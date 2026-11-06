@@ -15,3 +15,5 @@
 .moderation-card{min-width:0}
 .moderation-card .card-bottom{gap:10px;align-items:center}
 .moderation-card .gd-button,.moderation-card .page-button{padding:10px 13px;font-size:9px}
+
+.moderation-description{margin-top:10px!important;padding-top:10px;border-top:1px solid var(--line);line-height:1.6;overflow-wrap:anywhere}
