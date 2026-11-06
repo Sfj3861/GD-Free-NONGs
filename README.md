@@ -32,6 +32,8 @@ Open the **MODERATE** section in the web interface, enter the token, and approve
 
 The catalogue supports server-side search and pagination through `GET /api/v1/catalog/songs?q=...&page=1&limit=20`. The original `GET /api/v1/songs` endpoint remains available for existing clients.
 
+The browser stores selections under its own browser-profile ID. Secure browser-to-game device pairing is not implemented yet, so saving a selection on the website does not automatically change the in-game song. Until pairing is added, select and apply NONGs from the in-game Jukebox.
+
 The API currently uses SQLite and local file storage for development. It is not publicly deployed. Before production use, add managed database/object storage, user authentication and secure device pairing, rate limiting, backups, monitoring, and a documented rights/takedown process. The admin token is a basic single-server moderation control, not a complete account system.
 
 ## Rights and safety
