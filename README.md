@@ -5,7 +5,7 @@ GD Free NONGs is a **local-first, offline** library for managing alternative aud
 ## Components
 
 - `web/`: standalone browser interface. NONG audio and metadata are stored in the browser's IndexedDB.
-- `GD-Free-NONGs-GEODE/`: Geode mod. It detects local audio files in its own save directory and redirects Geometry Dash's song resolver to them.
+- [Geode mod repository](https://github.com/Sfj3861/GD-Free-NONGs-GEODE): imports local audio through the system file picker, stores it in the mod's save directory and redirects Geometry Dash's song resolver.
 - No server process or Internet connection is required to manage files already stored on the device.
 
 ## Browser workflow
@@ -21,11 +21,10 @@ Supported formats: MP3, OGG, WAV, FLAC and M4A. Maximum imported file size: 30 M
 ## Geometry Dash / Geode workflow
 
 1. Install the GD Free NONGs Geode mod.
-2. Find the mod's save directory using Geode's mod data tools/file manager.
-3. Open Geometry Dash and press the configured Jukebox key or the NONGs main-menu button.
-4. Choose **Import audio** and select the exported `song-<GD_ID>.<extension>` file from the system file picker.
-5. The mod validates the audio, copies it into its private save directory, registers it and applies it locally.
-6. Use **Delete** in My NONGs to remove a managed file and restore the original Geometry Dash audio.
+2. Open Geometry Dash and press the configured Jukebox key or the NONGs main-menu button.
+3. Choose **Import audio** and select the exported `song-<GD_ID>.<extension>` file from the system file picker.
+4. The mod validates the audio, copies it into its private save directory, registers it and applies it locally.
+5. Use **Delete** in My NONGs to remove a managed file and restore the original Geometry Dash audio.
 
 The browser and the game do not share storage. Exporting the audio file and importing it through Geode's system file picker is the deliberate offline bridge between them.
 
