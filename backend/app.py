@@ -285,13 +285,45 @@ def paginated_song_catalog(
 
 
 @app.get("/api/v1/songs/{gd_song_id}/nongs")
-def song_nongs(gd_song_id: str):
+def song_nongs(
+    gd_song_id: str,
+    page: Optional[int] = Query(default=None, ge=1),
+    limit: int = Query(default=7, ge=1, le=100),
+):
+    # Keep the original array response for existing web clients. Supplying
+    # page opts into the paginated response used by the Geode Jukebox.
     with db() as c:
-        rows = c.execute(
-            "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' ORDER BY id DESC",
+        if page is None:
+            rows = c.execute(
+                "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' ORDER BY id DESC",
+                (gd_song_id,),
+            ).fetchall()
+            return [public_nong(r) for r in rows]
+
+        total = c.execute(
+            "SELECT COUNT(*) FROM nongs WHERE gd_song_id=? AND status='approved'",
             (gd_song_id,),
+        ).fetchone()[0]
+        pages = (total + limit - 1) // limit
+        current_page = min(page, pages) if pages else 1
+        offset = (current_page - 1) * limit
+        rows = c.execute(
+            "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' "
+            "ORDER BY id DESC LIMIT ? OFFSET ?",
+            (gd_song_id, limit, offset),
         ).fetchall()
-    return [public_nong(r) for r in rows]
+
+    return {
+        "items": [public_nong(row) for row in rows],
+        "pagination": {
+            "page": current_page,
+            "limit": limit,
+            "total": total,
+            "pages": pages,
+            "has_previous": current_page > 1,
+            "has_next": current_page < pages,
+        },
+    }
 
 
 @app.post("/api/v1/nongs/upload")
