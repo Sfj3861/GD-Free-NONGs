@@ -125,6 +125,7 @@ async function handleApi(request, env, ctx) {
   }
 
   if (request.method === "POST" && path === "/api/v1/nongs/upload") {
+    if (!await rateLimit(db, "upload:" + clientIp(request), 5)) return error("Upload limit reached. Try again in 10 minutes.", 429);
     let form;
     try { form = await request.formData(); } catch { return error("Invalid multipart upload", 400); }
     const file = form.get("file");
@@ -249,17 +250,14 @@ async function handleApi(request, env, ctx) {
     if (!await rateLimit(db, "claim:" + ip, 8)) return error("Too many pairing attempts. Try again in 10 minutes.", 429);
     const codeHash = await sha256(new TextEncoder().encode(code));
     const now = Math.floor(Date.now() / 1000);
-    const row = await db.prepare(
-      "SELECT game_device_id FROM pairing_codes WHERE code_hash=? AND expires_at>?"
+    const consumed = await db.prepare(
+      "DELETE FROM pairing_codes WHERE code_hash=? AND expires_at>? RETURNING game_device_id"
     ).bind(codeHash, now).first();
-    if (!row) return error("Invalid or expired pairing code");
-    await db.batch([
-      db.prepare(
-        "INSERT INTO device_pairs(browser_device_id,game_device_id) VALUES(?,?) " +
-        "ON CONFLICT(browser_device_id) DO UPDATE SET game_device_id=excluded.game_device_id,created_at=CURRENT_TIMESTAMP"
-      ).bind(browserDeviceId, row.game_device_id),
-      db.prepare("DELETE FROM pairing_codes WHERE game_device_id=?").bind(row.game_device_id)
-    ]);
+    if (!consumed) return error("Invalid or expired pairing code");
+    await db.prepare(
+      "INSERT INTO device_pairs(browser_device_id,game_device_id) VALUES(?,?) " +
+      "ON CONFLICT(browser_device_id) DO UPDATE SET game_device_id=excluded.game_device_id,created_at=CURRENT_TIMESTAMP"
+    ).bind(browserDeviceId, consumed.game_device_id).run();
     return json({ paired: true, browser_device_id: browserDeviceId });
   }
 
