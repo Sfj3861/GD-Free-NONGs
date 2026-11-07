@@ -6,6 +6,7 @@ A Geometry Dash-inspired community library for alternative audio versions (NONGs
 - `web/`: responsive browser interface.
 - `backend/`: FastAPI service, SQLite development database and audio storage.
 - `infra/`: local Docker setup.
+- `cloudflare/`: production-oriented Cloudflare Workers + D1 + R2 deployment.
 
 ## Local development
 
@@ -38,7 +39,7 @@ After pairing, `POST /api/v1/selections/save` automatically maps the browser pro
 
 The browser and game can be paired with a one-time 16-character code. In the Jukebox, request a code with **Pair website**, then enter it in the web **PAIR** tab. Codes expire after 10 minutes, are single-use, and pairing attempts are rate-limited by client IP. Once paired, website selections are stored against the game device ID; press **Sync website** in the Jukebox to download approved NONGs, verify their SHA-256 digests, and apply them locally.
 
-The API currently uses SQLite and local file storage for development. It is not publicly deployed. Before production use, add managed database/object storage, user authentication and secure device pairing, rate limiting, backups, monitoring, and a documented rights/takedown process. The admin token is a basic single-server moderation control, not a complete account system.
+The `backend/` API uses SQLite and local file storage for development. The production cloud implementation is in `cloudflare/`: Workers serves the API and web frontend, D1 stores metadata/selections/pairing, and R2 stores audio. See `cloudflare/README.md` for provisioning and deployment. It is not considered live until Cloudflare resources are provisioned, the Worker is deployed, and the end-to-end flow is tested. Before a broad public launch, add stronger device authentication, upload abuse controls, backups, monitoring, and a documented rights/takedown process.
 
 ## Rights and safety
 Only upload audio you own or are authorized to redistribute. A Newgrounds or Geometry Dash ID identifies a track; it does not grant redistribution rights. Public deployment must add authentication, moderation, abuse controls and a suitable rights/takedown process.
