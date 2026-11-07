@@ -18,6 +18,10 @@ jobs:
         run: node --check web/app.js
       - name: Validate browser interface structure
         run: python scripts/validate_web.py
+      - name: Check Cloudflare Worker JavaScript syntax
+        run: node --check cloudflare/src/index.js
+      - name: Validate Cloudflare deployment and D1 schema
+        run: python scripts/validate_cloudflare.py
 
   backend:
     runs-on: ubuntu-latest
