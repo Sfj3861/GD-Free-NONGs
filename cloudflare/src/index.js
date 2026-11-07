@@ -118,10 +118,34 @@ async function handleApi(request, env, ctx) {
   const songNongs = path.match(/^\/api\/v1\/songs\/([^/]+)\/nongs$/);
   if (request.method === "GET" && songNongs) {
     const songId = decodeURIComponent(songNongs[1]);
+    const pageParam = url.searchParams.get("page");
+    if (pageParam === null) {
+      // Preserve the legacy array response for existing browser clients.
+      const rows = await db.prepare(
+        "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' ORDER BY id DESC"
+      ).bind(songId).all();
+      return json((rows.results || []).map(publicNong));
+    }
+
+    const requestedPage = Math.max(1, Number.parseInt(pageParam, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "7", 10) || 7));
+    const totalRow = await db.prepare(
+      "SELECT COUNT(*) AS total FROM nongs WHERE gd_song_id=? AND status='approved'"
+    ).bind(songId).first();
+    const total = totalRow?.total || 0;
+    const pages = Math.ceil(total / limit);
+    const currentPage = pages ? Math.min(requestedPage, pages) : 1;
     const rows = await db.prepare(
-      "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' ORDER BY id DESC"
-    ).bind(songId).all();
-    return json((rows.results || []).map(publicNong));
+      "SELECT * FROM nongs WHERE gd_song_id=? AND status='approved' ORDER BY id DESC LIMIT ? OFFSET ?"
+    ).bind(songId, limit, (currentPage - 1) * limit).all();
+
+    return json({
+      items: (rows.results || []).map(publicNong),
+      pagination: {
+        page: currentPage, limit, total, pages,
+        has_previous: currentPage > 1, has_next: currentPage < pages
+      }
+    });
   }
 
   if (request.method === "POST" && path === "/api/v1/nongs/upload") {
