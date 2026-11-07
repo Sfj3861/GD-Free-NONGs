@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const API = window.GFN_API_BASE || "http://localhost:8000";
+  const API = window.GFN_API_BASE || (window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin);
   const PAGE_SIZE = 18;
   const seed = [
     { gd_song_id: "467339", name: "At The Speed Of Light", artist: "Dimrain47", nongs: 0 },
