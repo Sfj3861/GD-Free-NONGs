@@ -1,4 +1,4 @@
-name: Validate web and API
+name: Validate offline web interface
 
 on:
   push:
@@ -6,87 +6,21 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  web:
+  offline-web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check browser JavaScript syntax
-        run: node --check web/app.js
-      - name: Validate browser interface structure
-        run: python scripts/validate_web.py
-      - name: Check Cloudflare Worker JavaScript syntax
-        run: node --check cloudflare/src/index.js
-      - name: Validate Cloudflare deployment and D1 schema
-        run: python scripts/validate_cloudflare.py
-
-  backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install API dependencies
-        run: pip install -r backend/requirements.txt
-      - name: Compile Python modules
-        run: python -m compileall -q backend
-      - name: Start API
-        run: |
-          GFN_ADMIN_TOKEN=ci-smoke-secret uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000 &
-          for attempt in $(seq 1 20); do
-            if curl --fail http://127.0.0.1:8000/health; then
-              break
-            fi
-            sleep 1
-          done
-      - name: Exercise upload, moderation, selection, sync and download
-        run: |
-          printf 'ID3\003\000\000\000\000\000\000smoke-test-audio' > /tmp/gfn-smoke.mp3
-          missing_rights_status=$(curl --silent --show-error -o /tmp/gfn-missing-rights.json -w "%{http_code}" -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" http://127.0.0.1:8000/api/v1/nongs/upload)
-          test "$missing_rights_status" = "422"
-          test "$(find backend/data/audio -type f | wc -l)" -eq 0
-          upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "rights_confirmed=true" -F "custom_name=CI Smoke Remix" http://127.0.0.1:8000/api/v1/nongs/upload)
-          nong_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$upload")
-          unauthorized_queue_status=$(curl --silent --show-error -o /tmp/gfn-admin-denied.json -w "%{http_code}" http://127.0.0.1:8000/api/v1/admin/nongs/pending)
-          test "$unauthorized_queue_status" = "401"
-          pending=$(curl --fail --silent --show-error -H "X-Admin-Token: ci-smoke-secret" http://127.0.0.1:8000/api/v1/admin/nongs/pending)
-          python -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows) == 1; assert rows[0]["id"] > 0; assert rows[0]["display_name"] == "CI Smoke Remix"; print("Authenticated moderation queue passed")' <<< "$pending"
-          pending_download_status=$(curl --silent --show-error -o /tmp/gfn-pending-download.json -w "%{http_code}" "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download")
-          test "$pending_download_status" = "404"
-          duplicate_status=$(curl --silent --show-error -o /tmp/gfn-duplicate.json -w "%{http_code}" -F "file=@/tmp/gfn-smoke.mp3;type=audio/mpeg" -F "gd_song_id=467339" -F "original_name=At The Speed Of Light" -F "rights_confirmed=true" http://127.0.0.1:8000/api/v1/nongs/upload)
-          test "$duplicate_status" = "409"
-          test "$(find backend/data/audio -type f | wc -l)" -eq 1
-          curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"approve"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$nong_id/moderate"
-          empty_queue=$(curl --fail --silent --show-error -H "X-Admin-Token: ci-smoke-secret" http://127.0.0.1:8000/api/v1/admin/nongs/pending)
-          python -c 'import json,sys; assert json.load(sys.stdin) == []; print("Moderation queue clears after review")' <<< "$empty_queue"
-          pairing=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d '{"device_id":"ci-smoke-device"}' http://127.0.0.1:8000/api/v1/pairing/request)
-          pair_code=$(python -c 'import json,sys; print(json.load(sys.stdin)["code"])' <<< "$pairing")
-          test "${#pair_code}" -eq 16
-          claimed=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"browser_device_id\":\"ci-browser-profile\",\"code\":\"$pair_code\"}" http://127.0.0.1:8000/api/v1/pairing/claim)
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["paired"] is True; assert d["browser_device_id"] == "ci-browser-profile"; print("Browser-to-game pairing passed")' <<< "$claimed"
-          replay_status=$(curl --silent --show-error -o /tmp/gfn-pair-replay.json -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "{\"browser_device_id\":\"another-browser\",\"code\":\"$pair_code\"}" http://127.0.0.1:8000/api/v1/pairing/claim)
-          test "$replay_status" = "400"
-          saved=$(curl --fail --silent --show-error -X POST -H "Content-Type: application/json" -d "{\"gd_song_id\":\"467339\",\"nong_id\":$nong_id,\"device_id\":\"ci-browser-profile\"}" http://127.0.0.1:8000/api/v1/selections/save)
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["paired"] is True; assert d["device_id"] == "ci-smoke-device"; print("Paired selection routing passed")' <<< "$saved"
-          browser_selections=$(curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/selections/ci-browser-profile)
-          python -c 'import json,sys; assert json.load(sys.stdin) == []; print("Browser profile does not create a detached selection")' <<< "$browser_selections"
-          catalog=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=At%20The%20Speed%20Of%20Light&page=1&limit=1")
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["pagination"]["total"] == 1; assert len(d["items"]) == 1; assert d["items"][0]["gd_song_id"] == "467339"; assert d["pagination"]["pages"] == 1; print("Paginated catalogue search passed")' <<< "$catalog"
-          empty=$(curl --fail --silent --show-error "http://127.0.0.1:8000/api/v1/catalog/songs?q=not-a-real-track&page=99&limit=10")
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["items"] == []; assert d["pagination"]["page"] == 1; assert d["pagination"]["pages"] == 0; assert not d["pagination"]["has_next"]; print("Empty/out-of-range catalogue handling passed")' <<< "$empty"
-          sync_result=$(curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/sync/ci-smoke-device)
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["device_id"] == "ci-smoke-device"; assert len(d["selections"]) == 1; s=d["selections"][0]; assert s["nong_id"] is not None; assert s["status"] == "ready"; assert len(s["sha256"]) == 64; print("Paired game device sync payload passed")' <<< "$sync_result"
-          curl --fail --silent --show-error -o /tmp/gfn-downloaded.mp3 "http://127.0.0.1:8000/api/v1/nongs/$nong_id/download"
-          cmp /tmp/gfn-smoke.mp3 /tmp/gfn-downloaded.mp3
-          printf 'ID3\003\000\000\000\000\000\000rejected-audio' > /tmp/gfn-rejected.mp3
-          rejected_upload=$(curl --fail --silent --show-error -F "file=@/tmp/gfn-rejected.mp3;type=audio/mpeg" -F "gd_song_id=613399" -F "original_name=Clubstep" -F "rights_confirmed=true" http://127.0.0.1:8000/api/v1/nongs/upload)
-          rejected_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<< "$rejected_upload")
-          rejected_decision=$(curl --fail --silent --show-error -X POST -H "X-Admin-Token: ci-smoke-secret" -H "Content-Type: application/json" -d '{"decision":"reject"}' "http://127.0.0.1:8000/api/v1/admin/nongs/$rejected_id/moderate")
-          python -c 'import json,sys; d=json.load(sys.stdin); assert d["status"] == "rejected"; print("NONG rejection passed")' <<< "$rejected_decision"
-          rejected_download_status=$(curl --silent --show-error -o /tmp/gfn-rejected-download.json -w "%{http_code}" "http://127.0.0.1:8000/api/v1/nongs/$rejected_id/download")
-          test "$rejected_download_status" = "404"
-          test "$(find backend/data/audio -type f | wc -l)" -eq 1
+      - name: Check browser JavaScript syntax
+        run: node --check web/app.js
+      - name: Validate offline browser interface
+        run: python scripts/validate_web.py
