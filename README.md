@@ -1,45 +1,45 @@
-# GD Free NONGs
+# GD Free NONGs — Local Edition
 
-A Geometry Dash-inspired community library for alternative audio versions (NONGs) that users are authorized to distribute.
+GD Free NONGs is a **local-first, offline** library for managing alternative audio files for Geometry Dash. The normal workflow does not use accounts, Cloudflare, FastAPI, a database server, a remote API, or any cloud service.
 
-## Repository layout
-- `web/`: responsive browser interface.
-- `backend/`: FastAPI service, SQLite development database and audio storage.
-- `infra/`: local Docker setup.
-- `cloudflare/`: production-oriented Cloudflare Workers + D1 + R2 deployment.
+## Components
 
-## Local development
+- `web/`: standalone browser interface. NONG audio and metadata are stored in the browser's IndexedDB.
+- `GD-Free-NONGs-GEODE/`: Geode mod. It detects local audio files in its own save directory and redirects Geometry Dash's song resolver to them.
+- No server process or Internet connection is required to manage files already stored on the device.
 
-### Web
-Open `web/index.html` directly, or serve the folder with any static HTTP server. Set `window.GFN_API_BASE` before loading the app to connect it to the API (default: `http://localhost:8000`).
+## Browser workflow
 
-### API
-```bash
-cd backend
-python -m venv .venv
-# activate the environment
-pip install -r requirements.txt
-uvicorn app:app --reload
-```
+1. Open `web/index.html` in a modern browser.
+2. Open **IMPORT**, choose an audio file, enter its Geometry Dash song ID and song name, and confirm you are authorized to use the audio.
+3. Open the song in **LIBRARY**, select a version and choose **EXPORT FOR GEODE**.
+4. The browser downloads the file with the exact name `song-<GD_ID>.<extension>`.
+5. Copy that file into the GD Free NONGs mod save directory on the device running Geometry Dash.
 
-Audio uploads are limited to 30 MiB and accepted formats are MP3, OGG, WAV, FLAC and M4A. Each upload requires an explicit rights confirmation, is checked for duplicate audio, and enters the pending moderation queue.
+Supported formats: MP3, OGG, WAV, FLAC and M4A. Maximum imported file size: 30 MiB. The browser checks the file signature and computes SHA-256 locally. Nothing is uploaded.
 
-To enable local moderation, start the API with an admin token:
-```bash
-GFN_ADMIN_TOKEN=your-local-secret uvicorn app:app --reload
-```
+## Geometry Dash / Geode workflow
 
-Open the **MODERATE** section in the web interface, enter the token, and approve or reject pending uploads. The token is held only in the current page session and sent through the `X-Admin-Token` header; it is not stored in browser storage.
+1. Install the GD Free NONGs Geode mod.
+2. Find the mod's save directory using Geode's mod data tools/file manager.
+3. Copy files named `song-<GD_ID>.mp3`, `.ogg`, `.wav`, `.flac` or `.m4a` into that directory.
+4. Open Geometry Dash and press the configured Jukebox key or the NONGs main-menu button.
+5. The mod scans the directory, registers matching files and applies them locally.
+6. Use **Delete** in My NONGs to remove a managed file and restore the original Geometry Dash audio.
 
-The catalogue supports server-side search and pagination through `GET /api/v1/catalog/songs?q=...&page=1&limit=20`. The original `GET /api/v1/songs` endpoint remains available for existing clients.
+The browser and the game do not share browser storage. Exporting and copying the audio file is the deliberate offline bridge between them.
 
-Browser/game pairing uses `POST /api/v1/pairing/request` from the game device and `POST /api/v1/pairing/claim` from the browser profile. The game receives a random 16-character hexadecimal code that expires in 10 minutes and is stored server-side only as a SHA-256 hash. Codes are single-use; requesting a new code for the same game device replaces the previous one. Pairing request/claim calls are limited per API-observed client IP. If deployed behind a reverse proxy, configure rate limiting at the proxy too.
+## Backups and privacy
 
-After pairing, `POST /api/v1/selections/save` automatically maps the browser profile ID to the linked game device ID. The mod reads those selections through `GET /api/v1/sync/{game_device_id}` and downloads only approved NONGs through the existing download endpoint. The mod verifies the SHA-256 digest before registering local replacements.
+Browser IndexedDB is local to that browser profile. Clearing browser data can remove the library. Export audio files you want to preserve. The Geode mod stores its own managed files and index in its local save directory.
 
-The browser and game can be paired with a one-time 16-character code. In the Jukebox, request a code with **Pair website**, then enter it in the web **PAIR** tab. Codes expire after 10 minutes, are single-use, and pairing attempts are rate-limited by client IP. Once paired, website selections are stored against the game device ID; press **Sync website** in the Jukebox to download approved NONGs, verify their SHA-256 digests, and apply them locally.
+## Rights
 
-The `backend/` API uses SQLite and local file storage for development. The production cloud implementation is in `cloudflare/`: Workers serves the API and web frontend, D1 stores metadata/selections/pairing, and R2 stores audio. See `cloudflare/README.md` for provisioning and deployment. It is not considered live until Cloudflare resources are provisioned, the Worker is deployed, and the end-to-end flow is tested. Before a broad public launch, add stronger device authentication, upload abuse controls, backups, monitoring, and a documented rights/takedown process.
+Only import and use audio you own or are authorized to use. A Geometry Dash or Newgrounds ID is an identifier, not permission to redistribute a track.
 
-## Rights and safety
-Only upload audio you own or are authorized to redistribute. A Newgrounds or Geometry Dash ID identifies a track; it does not grant redistribution rights. Public deployment must add authentication, moderation, abuse controls and a suitable rights/takedown process.
+## Compatibility target
+
+- Geometry Dash 2.2091
+- Geode SDK 6.0.0-alpha.1
+
+Build and in-game compatibility still require validation on the corresponding Windows and Android64 targets.
