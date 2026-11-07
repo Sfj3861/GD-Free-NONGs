@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for the GD Free NONGs browser interface."""
+"""Static checks for the offline GD Free NONGs browser interface."""
 
 from collections import Counter
 from html.parser import HTMLParser
@@ -11,40 +11,24 @@ class InterfaceParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.ids = []
         self.nav_views = []
-        self.rights_confirmation = False
-        self.admin_token = False
-        self.pairing_code = False
         self.forms = set()
+        self.rights_confirmation = False
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
-        element_id = attrs.get("id")
-        if element_id:
-            self.ids.append(element_id)
+        if attrs.get("id"):
+            self.ids.append(attrs["id"])
         if tag == "button" and attrs.get("data-view"):
             self.nav_views.append(attrs["data-view"])
-        if tag == "form" and element_id:
-            self.forms.add(element_id)
+        if tag == "form" and attrs.get("id"):
+            self.forms.add(attrs["id"])
         if tag == "input" and attrs.get("name") == "rights_confirmed":
-            self.rights_confirmation = (
-                attrs.get("type") == "checkbox" and "required" in attrs
-            )
-        if tag == "input" and element_id == "adminToken":
-            self.admin_token = (
-                attrs.get("type") == "password"
-                and attrs.get("autocomplete") == "off"
-            )
-        if tag == "input" and element_id == "pairCode":
-            self.pairing_code = (
-                attrs.get("type") == "text"
-                and attrs.get("maxlength") == "16"
-                and "required" in attrs
-                and attrs.get("pattern") == "[A-Fa-f0-9]{16}"
-            )
+            self.rights_confirmation = attrs.get("type") == "checkbox" and "required" in attrs
 
 
 def main():
-    html_path = Path(__file__).resolve().parents[1] / "web" / "index.html"
+    root = Path(__file__).resolve().parents[1]
+    html_path = root / "web" / "index.html"
     source = html_path.read_text(encoding="utf-8")
     parser = InterfaceParser()
     parser.feed(source)
@@ -55,43 +39,37 @@ def main():
         raise SystemExit("Duplicate HTML IDs: " + ", ".join(sorted(duplicates)))
 
     required_ids = {
-        "hero", "libraryView", "detailView", "publishView", "moderateView",
-        "songGrid", "songPagination", "previousPage", "nextPage", "pageInfo",
-        "uploadForm", "uploadStatus", "rights_confirmed", "adminForm",
-        "adminToken", "adminLogout", "moderationStatus", "pendingList",
-        "infoDialog", "saveDialog", "pairView", "pairForm",
-        "pairCode", "pairStatus",
+        "hero", "libraryView", "detailView", "importView", "songGrid",
+        "emptyState", "search", "importForm", "importStatus", "rights_confirmed",
+        "infoDialog", "saveDialog", "backToLibrary",
     }
-    # The rights declaration is a field name, not an HTML id.
-    required_ids.discard("rights_confirmed")
+    required_ids.discard("rights_confirmed")  # This is an input name, not an ID.
     missing = sorted(required_ids.difference(parser.ids))
     if missing:
         raise SystemExit("Missing required interface IDs: " + ", ".join(missing))
 
-    if not {"library", "publish", "moderate", "pair"}.issubset(parser.nav_views):
-        raise SystemExit("Library, Publish and Moderate navigation entries are required")
-    if not {"uploadForm", "adminForm"}.issubset(parser.forms):
-        raise SystemExit("Upload and admin forms are required")
+    if not {"library", "import"}.issubset(parser.nav_views):
+        raise SystemExit("Offline Library and Import navigation entries are required")
+    if "importForm" not in parser.forms:
+        raise SystemExit("The local import form is required")
     if not parser.rights_confirmation:
-        raise SystemExit("Uploads must require a rights-confirmation checkbox")
-    if not parser.admin_token:
-        raise SystemExit("Admin token input must be password-type with autocomplete off")
-    if not parser.pairing_code:
-        raise SystemExit("Pairing code must require a 16-character hexadecimal value")
+        raise SystemExit("Import must require confirmation of audio-use rights")
 
-    js = html_path.with_name("app.js").read_text(encoding="utf-8")
+    js = (root / "web" / "app.js").read_text(encoding="utf-8")
     for expected in (
-        'async function claimGamePairing',
-        '/api/v1/pairing/claim',
-        'deviceId()',
-        'result.paired',
-        '/api/v1/admin/nongs/pending',
-        'moderateNong',
+        'indexedDB.open(DB_NAME, DB_VERSION)',
+        'store.add(record)',
+        'crypto.subtle.digest("SHA-256", buffer)',
+        'downloadBlob(item.audio, "song-"',
+        'function exportSelection()',
     ):
         if expected not in js:
-            raise SystemExit("Missing browser flow: " + expected)
+            raise SystemExit("Missing local-only browser flow: " + expected)
+    for forbidden in ("fetch(", "XMLHttpRequest", "/api/v1/", "GFN_API_BASE", "cloudflare"):
+        if forbidden in js or forbidden in source:
+            raise SystemExit("Remote dependency found in offline interface: " + forbidden)
 
-    print("Web interface structure, pairing, moderation and safety controls passed")
+    print("Offline browser structure, IndexedDB storage, local checksum and Geode export passed")
 
 
 if __name__ == "__main__":
