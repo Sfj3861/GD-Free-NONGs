@@ -1,0 +1,81 @@
+name: Deploy GD Free NONGs to Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gfn-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required deployment secrets
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_ID: ${{ secrets.D1_DATABASE_ID }}
+          ADMIN_TOKEN: ${{ secrets.GFN_ADMIN_TOKEN }}
+        run: |
+          test -n "$CF_TOKEN" || (echo "::error::Missing CLOUDFLARE_API_TOKEN" && exit 1)
+          test -n "$CF_ACCOUNT" || (echo "::error::Missing CLOUDFLARE_ACCOUNT_ID" && exit 1)
+          test -n "$D1_ID" || (echo "::error::Missing D1_DATABASE_ID" && exit 1)
+          test -n "$ADMIN_TOKEN" || (echo "::error::Missing GFN_ADMIN_TOKEN" && exit 1)
+
+      - name: Prepare Wrangler configuration
+        env:
+          D1_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path("cloudflare/wrangler.jsonc").read_text()
+          database_id = os.environ["D1_ID"].strip()
+          if not database_id or "__D1_DATABASE_ID__" in database_id:
+              raise SystemExit("Invalid D1_DATABASE_ID secret")
+          Path("cloudflare/wrangler.deploy.jsonc").write_text(
+              source.replace("__D1_DATABASE_ID__", database_id)
+          )
+          PY
+          if grep -q "__D1_DATABASE_ID__" cloudflare/wrangler.deploy.jsonc; then
+            echo "::error::D1 database ID placeholder was not replaced"
+            exit 1
+          fi
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Apply production D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler d1 migrations apply gfn-production --remote --config cloudflare/wrangler.deploy.jsonc
+
+      - name: Set moderation secret
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GFN_ADMIN_TOKEN: ${{ secrets.GFN_ADMIN_TOKEN }}
+        run: printf '%s' "$GFN_ADMIN_TOKEN" | wrangler secret put GFN_ADMIN_TOKEN --config cloudflare/wrangler.deploy.jsonc
+
+      - name: Deploy Worker and website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler deploy --config cloudflare/wrangler.deploy.jsonc
+
+      - name: Report deployment URL
+        run: echo "Cloudflare Worker deployment completed. Open the Deployments tab for the workers.dev URL, then verify /health."
