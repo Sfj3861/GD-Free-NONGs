@@ -14,7 +14,7 @@ GD Free NONGs is a **local-first, offline** library for managing alternative aud
 2. Open **IMPORT**, choose an audio file, enter its Geometry Dash song ID and song name, and confirm you are authorized to use the audio.
 3. Open the song in **LIBRARY**, select a version and choose **EXPORT FOR GEODE**.
 4. The browser downloads the file with the exact name `song-<GD_ID>.<extension>`.
-5. Copy that file into the GD Free NONGs mod save directory on the device running Geometry Dash.
+5. Open the Geode Jukebox, choose **Import audio**, and select the downloaded file using the system file picker. The mod copies it into its private save directory.
 
 Supported formats: MP3, OGG, WAV, FLAC and M4A. Maximum imported file size: 30 MiB. The browser checks the file signature and computes SHA-256 locally. Nothing is uploaded.
 
@@ -22,12 +22,12 @@ Supported formats: MP3, OGG, WAV, FLAC and M4A. Maximum imported file size: 30 M
 
 1. Install the GD Free NONGs Geode mod.
 2. Find the mod's save directory using Geode's mod data tools/file manager.
-3. Copy files named `song-<GD_ID>.mp3`, `.ogg`, `.wav`, `.flac` or `.m4a` into that directory.
-4. Open Geometry Dash and press the configured Jukebox key or the NONGs main-menu button.
-5. The mod scans the directory, registers matching files and applies them locally.
+3. Open Geometry Dash and press the configured Jukebox key or the NONGs main-menu button.
+4. Choose **Import audio** and select the exported `song-<GD_ID>.<extension>` file from the system file picker.
+5. The mod validates the audio, copies it into its private save directory, registers it and applies it locally.
 6. Use **Delete** in My NONGs to remove a managed file and restore the original Geometry Dash audio.
 
-The browser and the game do not share browser storage. Exporting and copying the audio file is the deliberate offline bridge between them.
+The browser and the game do not share storage. Exporting the audio file and importing it through Geode's system file picker is the deliberate offline bridge between them.
 
 ## Backups and privacy
 
