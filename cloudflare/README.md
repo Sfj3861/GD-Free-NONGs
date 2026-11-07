@@ -14,6 +14,17 @@ Create a D1 database named `gfn-production` and an R2 bucket named `gfn-audio`. 
 
 The generated `wrangler.jsonc` expects the D1 database ID to replace `__D1_DATABASE_ID__`. Never commit API tokens or admin secrets.
 
+## Deploy through GitHub Actions (recommended for this repository)
+
+The repository includes a manual workflow at **Actions → Deploy GD Free NONGs to Cloudflare → Run workflow**. First create the D1 database `gfn-production` and R2 bucket `gfn-audio` in the Cloudflare dashboard. Then add these GitHub repository Actions secrets (Settings → Secrets and variables → Actions):
+
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token with the minimum account permissions needed to deploy Workers and manage D1/R2 resources (Workers Scripts Edit, D1 Edit, R2 Storage Edit, and Account Settings Read).
+- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID.
+- `D1_DATABASE_ID`: the ID of the `gfn-production` D1 database.
+- `GFN_ADMIN_TOKEN`: a long, randomly generated moderation secret. Do not paste it into chat or commit it.
+
+The workflow applies D1 migrations, stores the admin token as a Worker secret, and deploys the Worker and website. It deliberately does not create or delete databases/buckets automatically. If you change the Worker deployment configuration, rerun the validation workflow first.
+
 ## Deploy manually
 
 1. Install Node.js 22+ and Wrangler 4.
