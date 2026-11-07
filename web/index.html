@@ -1,87 +1,70 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#10150f">
-  <meta name="description" content="GD Free NONGs — descubre y gestiona versiones alternativas de canciones de Geometry Dash.">
-  <title>GD FREE NONGs</title><link rel="stylesheet" href="styles.css">
+  <meta name="description" content="GD Free NONGs — biblioteca local y sin servidores para gestionar audio alternativo de Geometry Dash.">
+  <title>GD FREE NONGs — Local</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
     <button class="icon-button info-trigger" id="infoOpen" aria-label="Información" title="Información">ⓘ</button>
     <a class="brand" href="#" aria-label="GD Free NONGs inicio"><span class="brand-mark">♫</span><span>GD FREE <b>NONGs</b></span></a>
-    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="publish">PUBLISH</button><button class="nav-button" data-view="moderate">MODERATE</button><button class="nav-button" data-view="pair">PAIR</button></nav>
-    <span class="connection" id="connection"><i></i> LOCAL PREVIEW</span>
+    <nav><button class="nav-button active" data-view="library">LIBRARY</button><button class="nav-button" data-view="import">IMPORT</button></nav>
+    <span class="connection online" id="connection"><i></i> OFFLINE · LOCAL</span>
   </header>
   <main>
     <section class="hero" id="hero">
-      <div class="eyebrow">THE COMMUNITY MUSIC LIBRARY</div>
+      <div class="eyebrow">YOUR PRIVATE OFFLINE LIBRARY</div>
       <h1>YOUR GD.<br><span>YOUR SOUND.</span></h1>
-      <p>Encuentra versiones alternativas para tus canciones favoritas de Geometry Dash.</p>
+      <p>Gestiona tus NONGs directamente en este dispositivo. No hay cuentas, nube, API ni servidores.</p>
       <label class="search"><span>⌕</span><input id="search" placeholder="Busca por nombre o ID de Geometry Dash…" autocomplete="off"><kbd>SEARCH</kbd></label>
     </section>
     <section id="libraryView">
-      <div class="section-heading"><div><div class="eyebrow">EXPLORE</div><h2>Song library</h2></div><span class="count" id="songCount">0 SONGS</span></div>
+      <div class="section-heading"><div><div class="eyebrow">ON THIS DEVICE</div><h2>Song library</h2></div><span class="count" id="songCount">0 SONGS</span></div>
       <div id="songGrid" class="song-grid"></div>
-      <div class="pagination" id="songPagination" aria-label="Catalogue pages">
-        <button class="page-button" id="previousPage" type="button" disabled>← PREVIOUS</button>
-        <span id="pageInfo">PAGE 1 / 1</span>
-        <button class="page-button" id="nextPage" type="button" disabled>NEXT →</button>
-      </div>
-      <div id="emptyState" class="empty hidden">No se encontraron canciones. Prueba con otro nombre o ID.</div>
+      <div id="emptyState" class="empty hidden">Todavía no hay NONGs. Importa un archivo para empezar.</div>
     </section>
     <section id="detailView" class="hidden">
       <button class="back-button" id="backToLibrary">← BACK TO LIBRARY</button>
       <div id="songDetail"></div>
     </section>
-    <section id="publishView" class="hidden">
-      <div class="section-heading"><div><div class="eyebrow">CONTRIBUTE</div><h2>Publish a NONG</h2></div></div>
-      <form id="uploadForm" class="panel form-grid">
-        <label class="field wide">AUDIO FILE <input name="file" type="file" accept=".mp3,.ogg,.wav,.flac,.m4a,audio/*" required><small>MP3, OGG, WAV, FLAC or M4A · max. 30 MiB</small></label>
-        <label class="field">GEOMETRY DASH SONG ID <input name="gd_song_id" inputmode="numeric" placeholder="467339" required></label>
-        <label class="field">NEWGROUNDS ID <input name="ng_song_id" inputmode="numeric" placeholder="Optional"></label>
-        <label class="field wide">ORIGINAL SONG NAME <input name="original_name" placeholder="At The Speed Of Light" required></label>
-        <label class="field wide">CUSTOM NAME <input name="custom_name" placeholder="Optional — takes priority over the original name"></label>
-        <label class="field wide">DESCRIPTION <textarea name="description" rows="3" placeholder="Tell the community about this version…"></textarea></label>
-        <div class="wide rights-note">By publishing, you confirm that you own this audio or have permission to redistribute it. Do not upload copyrighted remixes or recordings without authorization.</div>
-        <label class="wide rights-confirm"><input type="checkbox" name="rights_confirmed" value="true" required> I confirm that I have the rights or permission to redistribute this audio.</label>
-        <button class="gd-button wide" type="submit">UPLOAD NONG <span>↗</span></button>
-        <p class="form-status wide" id="uploadStatus" role="status"></p>
+    <section id="importView" class="hidden">
+      <div class="section-heading"><div><div class="eyebrow">DEVICE STORAGE</div><h2>Import a NONG</h2></div></div>
+      <form id="importForm" class="panel form-grid">
+        <label class="field wide">AUDIO FILE <input name="file" type="file" accept=".mp3,.ogg,.wav,.flac,.m4a,audio/*" required><small>MP3, OGG, WAV, FLAC or M4A · maximum 30 MiB</small></label>
+        <label class="field">GEOMETRY DASH SONG ID <input name="gd_song_id" inputmode="numeric" pattern="[0-9]+" placeholder="467339" required></label>
+        <label class="field">NEWGROUNDS ID <input name="ng_song_id" inputmode="numeric" pattern="[0-9]*" placeholder="Optional"></label>
+        <label class="field wide">SONG NAME <input name="original_name" placeholder="At The Speed Of Light" required maxlength="120"></label>
+        <label class="field wide">VERSION NAME <input name="custom_name" placeholder="Optional — e.g. remastered version" maxlength="120"></label>
+        <label class="wide rights-confirm"><input type="checkbox" name="rights_confirmed" required> Confirmo que tengo derecho a utilizar este audio.</label>
+        <button class="gd-button wide" type="submit">SAVE ON THIS DEVICE <span>↓</span></button>
+        <p class="form-status wide" id="importStatus" role="status"></p>
       </form>
     </section>
-  <section id="moderateView" class="hidden">
-    <div class="section-heading"><div><div class="eyebrow">COMMUNITY SAFETY</div><h2>Moderation queue</h2></div></div>
-    <form id="adminForm" class="panel form-grid">
-      <label class="field wide">ADMIN TOKEN <input id="adminToken" type="password" autocomplete="off" placeholder="Enter the server moderation token" required></label>
-      <button class="gd-button" type="submit">LOAD PENDING <span>↻</span></button>
-      <button class="page-button" id="adminLogout" type="button">CLEAR TOKEN</button>
-    </form>
-    <p class="form-status" id="moderationStatus" role="status">The token is kept in memory only and is not saved in browser storage.</p>
-    <div id="pendingList" class="song-grid"></div>
-  </section>
-  <section id="pairView" class="hidden">
-    <div class="section-heading"><div><div class="eyebrow">DEVICE LINK</div><h2>Pair your game</h2></div></div>
-    <div class="panel">
-      <p class="muted">Open the GD Free NONGs Jukebox in Geometry Dash and choose <b>Pair website</b>. Enter the one-time code shown in the game below. Codes expire after 10 minutes and can only be used once.</p>
-      <form id="pairForm" class="form-grid">
-        <label class="field wide">ONE-TIME PAIRING CODE
-          <input id="pairCode" class="pair-code" type="text" inputmode="text" autocomplete="one-time-code" maxlength="16" minlength="16" pattern="[A-Fa-f0-9]{16}" placeholder="0123456789ABCDEF" required>
-        </label>
-        <button class="gd-button" type="submit">PAIR DEVICE <span>↔</span></button>
-      </form>
-      <p class="form-status" id="pairStatus" role="status">Your browser profile will be linked to the game device after the code is accepted.</p>
-      <p class="muted">Once paired, save NONG selections in the Library, then open the Jukebox and press <b>Sync website</b>. The mod downloads approved audio, verifies its SHA-256 digest and applies the local replacement.</p>
-    </div>
-  </section>
   </main>
-  <footer><span>GD FREE NONGs</span><span>COMMUNITY-POWERED · RESPECT CREATORS' RIGHTS</span></footer>
+  <footer><span>GD FREE NONGs · LOCAL EDITION</span><span>NO CLOUD · NO ACCOUNTS · NO REMOTE SERVER</span></footer>
   <dialog id="infoDialog" class="dialog">
-    <button class="dialog-close" id="infoClose" aria-label="Cerrar">×</button><div class="eyebrow">WELCOME TO GD FREE NONGs</div><h2>What is this?</h2>
-    <p>Una biblioteca comunitaria para descubrir y publicar versiones alternativas de canciones asociadas a Geometry Dash.</p>
-    <ol><li>Abre el Jukebox en Geometry Dash y pulsa <b>Pair website</b>.</li><li>Introduce el código temporal en la pestaña <b>PAIR</b> de esta web.</li><li>Busca una canción, elige una versión y pulsa <b>SAVE</b>.</li><li>En el juego, pulsa <b>Sync website</b> para descargar y aplicar las selecciones.</li></ol>
-    <p class="muted">Los códigos duran 10 minutos, se pueden usar una sola vez y están limitados por intentos. Las descargas del juego se verifican mediante SHA-256.</p>
+    <button class="dialog-close" id="infoClose" aria-label="Cerrar">×</button>
+    <div class="eyebrow">100% LOCAL</div><h2>How it works</h2>
+    <ol>
+      <li>Importa un audio y asigna el ID de la canción de Geometry Dash.</li>
+      <li>Selecciona la versión y pulsa <b>EXPORT FOR GEODE</b>.</li>
+      <li>Se descargará como <code>song-ID.ext</code>.</li>
+      <li>Copia ese archivo a la carpeta de datos de GD Free NONGs del mod Geode.</li>
+      <li>Abre el Jukebox y actualiza My NONGs. El mod lo detectará automáticamente.</li>
+    </ol>
+    <p class="muted">Los datos de esta biblioteca permanecen en el almacenamiento de este navegador. Exporta copias de seguridad si vas a borrar los datos del navegador o cambiar de dispositivo.</p>
     <button class="gd-button" id="infoDone">GOT IT</button>
   </dialog>
-  <dialog id="saveDialog" class="dialog"><button class="dialog-close" id="saveClose">×</button><div class="eyebrow">SELECTION SAVED</div><h2>Saved locally</h2><p id="saveMessage">Your selection has been saved in this browser.</p><p class="muted">La sincronización con Geometry Dash estará disponible al conectar el mod con un servidor desplegado.</p><button class="gd-button" id="saveDone">OK</button></dialog>
+  <dialog id="saveDialog" class="dialog">
+    <button class="dialog-close" id="saveClose" aria-label="Cerrar">×</button>
+    <div class="eyebrow">LOCAL SELECTION</div><h2>Selection saved</h2>
+    <p id="saveMessage">Tu selección se ha guardado en este dispositivo.</p>
+    <button class="gd-button" id="saveDone">OK</button>
+  </dialog>
   <script src="app.js"></script>
-</body></html>
+</body>
+</html>
