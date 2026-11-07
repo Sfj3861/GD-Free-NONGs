@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS nongs (
 
 CREATE INDEX IF NOT EXISTS idx_nongs_song_status ON nongs(gd_song_id, status);
 CREATE INDEX IF NOT EXISTS idx_nongs_hash ON nongs(gd_song_id, sha256);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_nongs_unique_audio ON nongs(gd_song_id, sha256);
 
 CREATE TABLE IF NOT EXISTS selections (
   device_id TEXT NOT NULL,
