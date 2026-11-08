@@ -55,21 +55,34 @@ def main():
     if not parser.rights_confirmation:
         raise SystemExit("Import must require confirmation of audio-use rights")
 
-    js = (root / "web" / "app.js").read_text(encoding="utf-8")
+    js_path = root / "web" / "app.js"
+    css_path = root / "web" / "styles.css"
+    if not js_path.is_file() or not css_path.is_file():
+        raise SystemExit("The local JavaScript and CSS assets must both exist")
+    js = js_path.read_text(encoding="utf-8")
+    css = css_path.read_text(encoding="utf-8")
+
     for expected in (
         'indexedDB.open(DB_NAME, DB_VERSION)',
         'store.add(record)',
         'crypto.subtle.digest("SHA-256", buffer)',
         'downloadBlob(item.audio, "song-"',
         'function exportSelection()',
+        'if (!(file instanceof File) || !file.size)',
+        'const extension = file.name.includes(".")',
     ):
         if expected not in js:
-            raise SystemExit("Missing local-only browser flow: " + expected)
-    for forbidden in ("fetch(", "XMLHttpRequest", "/api/v1/", "GFN_API_BASE", "cloudflare"):
-        if forbidden in js or forbidden in source:
+            raise SystemExit("Missing or unsafe local browser flow: " + expected)
+
+    for forbidden in ("fetch(", "XMLHttpRequest", "/api/v1/", "GFN_API_BASE", "cloudflare", "WebSocket", "EventSource"):
+        if forbidden in js or forbidden in source or forbidden in css:
             raise SystemExit("Remote dependency found in offline interface: " + forbidden)
 
-    print("Offline browser structure, IndexedDB storage, local checksum and Geode export passed")
+    for asset_name, asset_source in (("HTML", source), ("JavaScript", js), ("CSS", css)):
+        if "https://" in asset_source or "http://" in asset_source:
+            raise SystemExit("External network URL found in offline " + asset_name + " asset")
+
+    print("Offline browser structure, local assets, IndexedDB storage, checksum and Geode export passed")
 
 
 if __name__ == "__main__":
