@@ -206,8 +206,9 @@
     const songId = String(data.get("gd_song_id") || "").trim();
     const originalName = String(data.get("original_name") || "").trim();
     const customName = String(data.get("custom_name") || "").trim();
-    const extension = file.name.split(".").pop().toLowerCase();
     if (!(file instanceof File) || !file.size) { status.textContent = "Selecciona un archivo de audio."; return; }
+    const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "";
+    if (!EXTENSIONS.has(extension)) { status.textContent = "Formato no compatible. Usa MP3, OGG, WAV, FLAC o M4A."; return; }
     if (!/^[0-9]{1,12}$/.test(songId)) { status.textContent = "El ID de Geometry Dash debe ser numérico."; return; }
     if (!originalName) { status.textContent = "Escribe el nombre de la canción."; return; }
     if (file.size > MAX_BYTES) { status.textContent = "El archivo supera el límite de 30 MiB."; return; }
