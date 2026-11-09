@@ -70,6 +70,8 @@ def main():
         'function exportSelection()',
         'if (!(file instanceof File) || !file.size)',
         'const extension = file.name.includes(".")',
+        'currentVersions = await getSongNongs(item.gd_song_id)',
+        'if (currentVersions.length === 0)',
     ):
         if expected not in js:
             raise SystemExit("Missing or unsafe local browser flow: " + expected)
