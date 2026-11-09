@@ -183,6 +183,13 @@
     const all = selections();
     if (all[item.gd_song_id] === id) { delete all[item.gd_song_id]; localStorage.setItem("gfn-local-selections", JSON.stringify(all)); }
     await refresh();
+    currentVersions = await getSongNongs(item.gd_song_id);
+    if (currentVersions.length === 0) {
+      selectedSong = null;
+      selectedVersion = "original";
+      show("library");
+      return;
+    }
     await openSong(item.gd_song_id);
   }
 
